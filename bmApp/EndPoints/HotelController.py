@@ -1,0 +1,1 @@
+# for endPoints that working with Hotels
