@@ -1,0 +1,170 @@
+from typing import Any, Dict
+from decimal import Decimal
+from rest_framework import serializers # type: ignore 
+# ignore сделан для того чтобы Pylance не ругался, особой роли он не играет и это не является ошибкой.
+
+from .models import (
+    CountryEntity,
+    CityEntity,
+    CurrencyEntity,
+    DebitCardEntity,
+    HotelEntity,
+    PaymentMethodEntity,
+    RoomEntity,
+    UserEntity,
+    ReservationEntity
+)
+
+class CountrySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CountryEntity
+        fields = [
+            'id',
+            'name'
+        ]
+
+class CitySerializer(serializers.ModelSerializer):
+    country = serializers.PrimaryKeyRelatedField(queryset=CountryEntity.objects.all())
+    class Meta:
+        model = CityEntity
+        fields = [
+            'id',
+            'name',
+            'country'
+        ]
+
+class CurrencySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CurrencyEntity
+        fields = [
+            'id',
+            'currency'
+        ]
+
+class DebitCardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DebitCardEntity
+        fields = [
+            'id',
+            'name'
+        ]
+
+class PaymentMethodSerializer(serializers.ModelSerializer):
+    cardType = serializers.PrimaryKeyRelatedField(queryset=DebitCardEntity.objects.all())
+
+    class Meta:
+        model = PaymentMethodEntity
+        fields = [
+            'id',
+            'cardType',
+            'cardNumber',
+            'date'
+        ]
+
+class HotelSerializer(serializers.ModelSerializer):
+    city = serializers.PrimaryKeyRelatedField(queryset=CityEntity.objects.all())
+
+    class Meta:
+        model = HotelEntity
+        fields = [
+            'id',
+            'name',
+            'description',
+            'address',
+            'phone',
+            'email',
+            'stars',
+            'photo',
+            'city'
+        ]
+
+    def validate_stars(self, value: int) -> int:
+        if value < 0 or value > 5:
+            raise serializers.ValidationError('Hotel stars must be between 0 and 5.')
+        return value
+
+class RoomSerializer(serializers.ModelSerializer):
+    hotel = serializers.PrimaryKeyRelatedField(queryset=HotelEntity.objects.all())
+
+    class Meta:
+        model = RoomEntity
+        fields = [
+            'id',
+            'roomNumber',
+            'description',
+            'wifi',
+            'privatePool',
+            'Bath',
+            'price',
+            'beds',
+            'hotel'
+        ]
+
+    def validate_price(self, value: Decimal) -> Decimal:
+        if value < 0:
+            raise serializers.ValidationError('Room price cannot be negative.')
+        return value
+
+    def validate_beds(self, value: int) -> int:
+        if value <= 0:
+            raise serializers.ValidationError('Number of beds must be greater than 0.')
+        return value
+
+class UserSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField()
+    city = serializers.PrimaryKeyRelatedField(queryset=CityEntity.objects.all(), allow_null=True, required=False)
+    currency = serializers.PrimaryKeyRelatedField(queryset=CurrencyEntity.objects.all(), allow_null=True, required=False)
+    payMethod = serializers.PrimaryKeyRelatedField(queryset=PaymentMethodEntity.objects.all(), allow_null=True, required=False)
+    hashPassword = serializers.CharField(write_only=True, required=False)
+    authCode = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = UserEntity
+        fields = [
+            'id',
+            'name',
+            'hashPassword',
+            'email',
+            'phone',
+            'birthday',
+            'photo',
+            'ampthill',
+            'authCode',
+            'city',
+            'currency',
+            'payMethod'
+        ]
+
+class ReservationSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField()
+    room = serializers.PrimaryKeyRelatedField(queryset=RoomEntity.objects.all())
+    user = serializers.PrimaryKeyRelatedField(queryset=UserEntity.objects.all(), allow_null=True, required=False)
+    country = serializers.PrimaryKeyRelatedField(queryset=CountryEntity.objects.all(), allow_null=True)
+    payMethod = serializers.PrimaryKeyRelatedField(queryset=PaymentMethodEntity.objects.all(), allow_null=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+
+    class Meta:
+        model = ReservationEntity
+        fields = [
+            'id',
+            'checkIn',
+            'checkOut',
+            'name',
+            'sureName',
+            'email',
+            'password',
+            'phoneNumber',
+            'cityGuide',
+            'room',
+            'user',
+            'country',
+            'payMethod'
+        ]
+
+    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        check_in = attrs.get('checkIn')
+        check_out = attrs.get('checkOut')
+        if check_in and check_out:
+            if check_out <= check_in:
+                raise serializers.ValidationError({'checkOut': 'Check-out date must be later than check-in date.'})
+        return attrs
