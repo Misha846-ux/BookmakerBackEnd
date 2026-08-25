@@ -1,6 +1,7 @@
 from typing import Any, Dict
 from decimal import Decimal
-from rest_framework import serializers # type: ignore 
+from dataclasses import dataclass 
+from rest_framework import serializers # type: ignore
 # ignore сделан для того чтобы Pylance не ругался, особой роли он не играет и это не является ошибкой.
 
 from .models import (
@@ -168,3 +169,8 @@ class ReservationSerializer(serializers.ModelSerializer):
             if check_out <= check_in:
                 raise serializers.ValidationError({'checkOut': 'Check-out date must be later than check-in date.'})
         return attrs
+
+
+class AuthAccountDTO():
+    email: str
+    password: str

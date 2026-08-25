@@ -39,7 +39,7 @@ class RoomEntity(models.Model):
     hotel = models.ForeignKey(HotelEntity, on_delete=models.CASCADE)
 
 class UserEntity(models.Model):
-    name = models.CharField(max_length=200)
+    name = models.CharField(max_length=200, blank=True)
     hashPassword = models.CharField(max_length=200)
     email = models.CharField(max_length=200, unique=True)
     phone = models.CharField(max_length=200, unique=True, blank=True)
@@ -47,6 +47,8 @@ class UserEntity(models.Model):
     photo = models.CharField(max_length=200, unique=True, blank=True) #Путь к аватарке пользователя
     ampthill = models.CharField(max_length=200, blank=True)
     authCode = models.CharField(max_length=200, blank=True)
+    authCodeCreatedAt = models.DateTimeField(blank=True)
+    created = models.BooleanField(default=False)
     city = models.ForeignKey(CityEntity, blank=True, null=True, on_delete=models.SET_NULL)
     currency = models.ForeignKey(CurrencyEntity, blank=True, null=True, on_delete=models.SET_NULL)
     payMethod = models.ForeignKey(PaymentMethodEntity, blank=True, null=True, on_delete=models.SET_NULL)
