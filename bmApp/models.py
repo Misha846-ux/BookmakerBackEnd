@@ -47,7 +47,7 @@ class UserEntity(models.Model):
     photo = models.CharField(max_length=200, unique=True, blank=True) #Путь к аватарке пользователя
     ampthill = models.CharField(max_length=200, blank=True)
     authCode = models.CharField(max_length=200, blank=True)
-    authCodeCreatedAt = models.DateTimeField(blank=True)
+    authCodeCreatedAt = models.DateTimeField(blank=True, null=True)
     created = models.BooleanField(default=False)
     city = models.ForeignKey(CityEntity, blank=True, null=True, on_delete=models.SET_NULL)
     currency = models.ForeignKey(CurrencyEntity, blank=True, null=True, on_delete=models.SET_NULL)
@@ -66,5 +66,12 @@ class ReservationEntity(models.Model):
     user = models.ForeignKey(UserEntity, on_delete=models.SET_NULL, blank=True, null=True)
     country = models.ForeignKey(CountryEntity, on_delete=models.SET_NULL, null=True)
     payMethod = models.ForeignKey(PaymentMethodEntity, on_delete=models.SET_NULL, null=True)
+
+class ReviewEntity(models.Model):
+    review = models.TextField()
+    createdAt = models.DateTimeField()
+    user = models.ForeignKey(UserEntity, on_delete=models.CASCADE)
+    hotel = models.ForeignKey(HotelEntity, on_delete=models.CASCADE)
+    rating = models.IntegerField()
 
 

@@ -1,5 +1,6 @@
 from typing import Any, Dict
 from decimal import Decimal
+from datetime import datetime
 from dataclasses import dataclass 
 from rest_framework import serializers # type: ignore
 # ignore сделан для того чтобы Pylance не ругался, особой роли он не играет и это не является ошибкой.
@@ -174,3 +175,14 @@ class ReservationSerializer(serializers.ModelSerializer):
 class AuthAccountDTO():
     email: str
     password: str
+
+class AdvancedSearchDTO(serializers.Serializer):
+    land = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    city = serializers.CharField(required=False,allow_null=True,allow_blank=True)
+    checkIn = serializers.DateTimeField(required=False, allow_null=True)
+    checkOut = serializers.DateTimeField(required=False, allow_null=True)
+    people = serializers.IntegerField(required=False, allow_null=True, min_value=1)
+    nightPrice = serializers.FloatField(required=False, allow_null=True, min_value=0)
+    rate = serializers.IntegerField(required=False, allow_null=True)
+    stars = serializers.FloatField(required=False, allow_null=True)
+    wifi = serializers.BooleanField(required=False, allow_null=True)
