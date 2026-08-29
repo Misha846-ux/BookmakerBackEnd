@@ -6,5 +6,6 @@ urlpatterns = [
     path("user/sendAuthCode", sendAuthCode),
     path("user/createAccount", createAccount),
     path("user/verifyAccount", verifyAccount),
-    path("hotels/advancedFilter/", AdvencedSearch)
+    path("hotels/advancedFilter/", AdvencedSearch),
+    path("hotels/get", get_hotels),
 ]

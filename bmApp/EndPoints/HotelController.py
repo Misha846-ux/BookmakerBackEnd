@@ -1,10 +1,74 @@
 # for endPoints that working with Hotels
-from django.db.models import Exists, OuterRef, Avg
+from django.db.models import Exists, OuterRef, Avg, Min
 from rest_framework.response import Response # type: ignore
 from rest_framework.decorators import api_view # type: ignore
 from rest_framework.response import Response # type: ignore
-from ..serializers import AdvancedSearchDTO
+
+from ..serializers import AdvancedSearchDTO, HotelSerializer
 from ..models import *
+
+
+def get_hotels(request):
+
+    hotels = HotelEntity.objects.all()
+
+    city = request.query_params.get('city')
+
+    if city:
+        hotels = hotels.filter(city_id=city)
+
+    min_price = request.query_params.get('minPrice')
+
+    if min_price:
+        hotels = hotels.annotate(
+            min_room_price=Min("roomentity_set__price")
+        ).filter(
+            min_room_price__gte=min_price
+        )
+
+    rating = request.query_params.get('rating')
+
+    if rating:
+        hotels = hotels.annotate(
+            average_rate=Avg("reviewentity_set__rating")
+        ).filter(
+            average_rate__gte=rating
+        )
+
+    stars = request.query_params.get('stars')
+
+    if stars:
+        hotels = hotels.filter(
+            stars=stars
+        )
+
+    # Remove duplicates
+    hotels = hotels.distinct()
+
+    page = int(request.query_params.get('page', 1))
+
+    page_size = 30
+
+    start = (page - 1) * page_size
+    end = start + page_size
+
+    total = hotels.count()
+
+    hotels = hotels[start:end]
+
+    serializer = HotelSerializer(
+        hotels,
+        many=True
+    )
+
+    return Response({
+        'count': total,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': (total + page_size - 1) // page_size,
+        'results': serializer.data
+    })
+
 
 def AdvencedSearch(request):
     dto = AdvancedSearchDTO(data=request.data)
@@ -59,12 +123,12 @@ def AdvencedSearch(request):
         else:
             reserved_rooms = reserved_rooms.filter(
                 checkIn__lt=check_out_date, checkOut__gt=check_in_date)
-            
+
         free_rooms = RoomEntity.objects.annotate(is_reserved=Exists(reserved_rooms)).filter(
             is_reserved=False)
 
         hotels = hotels.filter(roomentity_set__in=free_rooms)
-    
+
     hotels = hotels.distinct()
     total = hotels.count()
 
@@ -76,3 +140,4 @@ def AdvencedSearch(request):
     serializer = HotelSerializer(hotels, many=True)
 
     return Response(serializer.data, status = 200)
+
