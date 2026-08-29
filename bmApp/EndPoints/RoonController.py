@@ -1,1 +1,0 @@
-# for andPoints that working with rooms
