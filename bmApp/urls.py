@@ -1,10 +1,15 @@
 from django.urls import path
 from .EndPoints.UserController import *
 from .EndPoints.HotelController import *
+from .EndPoints.RoonController import *
 
 urlpatterns = [
     path("user/sendAuthCode", sendAuthCode),
     path("user/createAccount", createAccount),
     path("user/verifyAccount", verifyAccount),
-    path("hotels/advancedFilter/", AdvencedSearch)
+    path("hotels/advancedFilter/", AdvencedSearch),
+    path("hotels/<int:hotel_id>/photos/", uploadHotelPhotos),
+    path("hotels/<int:hotel_id>/photos/", getHotelPhotos),
+    path("rooms/<int:room_id>/photos/", uploadRoomPhotos),
+    path("rooms/<int:room_id>/photos/", getRoomPhotos),
 ]

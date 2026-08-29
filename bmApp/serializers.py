@@ -99,6 +99,7 @@ class RoomSerializer(serializers.ModelSerializer):
             'Bath',
             'price',
             'beds',
+            'photo',
             'hotel'
         ]
 
