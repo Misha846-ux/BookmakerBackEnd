@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'bmApp.apps.BmappConfig',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
