@@ -7,8 +7,26 @@ from rest_framework.response import Response # type: ignore
 from ..serializers import AdvancedSearchDTO, HotelSerializer
 from ..models import *
 
+@api_view(['POST'])
+def createHotel(request):
 
-def get_hotels(request):
+    serializer = HotelSerializer(data=request.data)
+
+    if serializer.is_valid():
+        hotel = serializer.save()
+
+        return Response(
+            HotelSerializer(hotel).data,
+            status=201
+        )
+
+    return Response(
+        serializer.errors,
+        status=400
+    )
+
+@api_view(['GET'])
+def getHotels(request):
 
     hotels = HotelEntity.objects.all()
 

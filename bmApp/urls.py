@@ -7,5 +7,6 @@ urlpatterns = [
     path("user/createAccount", createAccount),
     path("user/verifyAccount", verifyAccount),
     path("hotels/advancedFilter/", AdvencedSearch),
-    path("hotels/get", get_hotels),
+    path("hotels/get/", getHotels),
+    path("hotels/create/", createHotel),
 ]
