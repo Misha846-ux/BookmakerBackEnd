@@ -3,7 +3,7 @@ from django.db.models import Exists, OuterRef, Avg
 from rest_framework.response import Response # type: ignore
 from rest_framework.decorators import api_view # type: ignore
 from rest_framework.response import Response # type: ignore
-from ..serializers import AdvancedSearchDTO
+from ..serializers import *
 from ..models import *
 
 def AdvencedSearch(request):
@@ -76,3 +76,49 @@ def AdvencedSearch(request):
     serializer = HotelSerializer(hotels, many=True)
 
     return Response(serializer.data, status = 200)
+
+def Search(request):
+    dto = HotelSearchDTO(data=request.data)
+    dto.is_valid(raise_exception=True)
+
+    data = dto.validated_data
+
+    hotels = HotelEntity.objects.all()
+
+    if data.get("land"):
+        hotels = hotels.filter(city__country__name__iexact=data["land"])
+
+    if data.get("city"):
+        hotels = hotels.filter(city__name__iexact = data["city"])
+
+    if data.get("people"):
+        hotels = hotels.filter(roomentity_set__beds__gte=data["people"])
+
+    check_in = data.get("checkIn")
+    check_out = data.get("checkOut")
+
+    if check_in or check_out:
+
+        check_in_date = check_in.date() if check_in else None
+        check_out_date = check_out.date() if check_out else None
+
+        reserved_rooms = ReservationEntity.objects.filter(
+            room=OuterRef("pk")
+        )
+        if check_in_date and not check_out_date:
+            reserved_rooms = reserved_rooms.filter(
+                checkIn__lte=check_in_date, checkOut__gt=check_in_date)
+        else:
+            reserved_rooms = reserved_rooms.filter(
+                checkIn__lt=check_out_date, checkOut__gt=check_in_date)
+
+        free_rooms = RoomEntity.objects.annotate(is_reserved=Exists(reserved_rooms)).filter(
+            is_reserved=False)
+
+        hotels = hotels.filter(roomentity_set__in=free_rooms)
+
+    hotels = hotels.distinct()
+
+    serializer = HotelSerializer(hotels, many=True)
+
+    return Response(serializer.data, status=200)

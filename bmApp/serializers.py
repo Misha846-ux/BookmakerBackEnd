@@ -186,3 +186,10 @@ class AdvancedSearchDTO(serializers.Serializer):
     rate = serializers.IntegerField(required=False, allow_null=True)
     stars = serializers.FloatField(required=False, allow_null=True)
     wifi = serializers.BooleanField(required=False, allow_null=True)
+
+class HotelSearchDTO(serializers.Serializer):
+    land = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    city = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    checkIn = serializers.DateTimeField(required=False, allow_null=True)
+    checkOut = serializers.DateTimeField(required=False, allow_null=True)
+    people = serializers.IntegerField(required=False, allow_null=True,min_value=1)
