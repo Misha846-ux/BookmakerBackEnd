@@ -7,6 +7,7 @@ urlpatterns = [
     path("user/sendAuthCode", sendAuthCode),
     path("user/createAccount", createAccount),
     path("user/verifyAccount", verifyAccount),
+    path("user/<int:user_id>/profile", updateUserProfile),
     path("hotels/advancedFilter/", AdvencedSearch),
     path("hotels/<int:hotel_id>/photos/", uploadHotelPhotos),
     path("hotels/<int:hotel_id>/photos/", getHotelPhotos),
