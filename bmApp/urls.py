@@ -3,7 +3,7 @@ from django.urls import path
 from .EndPoints.RoomController import createRoom
 from .EndPoints.UserController import *
 from .EndPoints.HotelController import *
-from .EndPoints.RoonController import *
+from .EndPoints.RoomController import *
 
 urlpatterns = [
     path("user/sendAuthCode", sendAuthCode),
