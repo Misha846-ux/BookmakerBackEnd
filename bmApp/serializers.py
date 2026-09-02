@@ -99,6 +99,7 @@ class RoomSerializer(serializers.ModelSerializer):
             'Bath',
             'price',
             'beds',
+            'photo',
             'hotel'
         ]
 
@@ -136,6 +137,43 @@ class UserSerializer(serializers.ModelSerializer):
             'currency',
             'payMethod'
         ]
+
+class UserProfileUpdateSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False, allow_blank=False)
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    birthday = serializers.DateField(required=False, allow_null=True)
+    ampthill = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    city = serializers.PrimaryKeyRelatedField(queryset=CityEntity.objects.all(), required=False, allow_null=True)
+    country = serializers.PrimaryKeyRelatedField(queryset=CountryEntity.objects.all(), required=False, allow_null=True)
+    currency = serializers.PrimaryKeyRelatedField(queryset=CurrencyEntity.objects.all(), required=False, allow_null=True)
+
+    def validate(self, data):
+        city = data.get('city')
+        country = data.get('country')
+        
+        if country and not city:
+            raise serializers.ValidationError({'country': 'Country can only be specified together with a city.'})
+        
+        if city and country:
+            if city.country_id != country.id:
+                raise serializers.ValidationError({'city': 'The selected city does not belong to the selected country.'})
+        return data
+
+    def validate_email(self, value):
+        if not value:
+            return value
+        user_id = self.context.get('user_id')
+        if UserEntity.objects.filter(email=value).exclude(id=user_id).exists():
+            raise serializers.ValidationError('Email is already in use by another user.')
+        return value
+
+    def validate_phone(self, value):
+        if not value:
+            return value
+        user_id = self.context.get('user_id')
+        if UserEntity.objects.filter(phone=value).exclude(id=user_id).exists():
+            raise serializers.ValidationError('Phone number is already in use by another user.')
+        return value
 
 class ReservationSerializer(serializers.ModelSerializer):
     email = serializers.EmailField()

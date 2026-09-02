@@ -36,6 +36,7 @@ class RoomEntity(models.Model):
     Bath = models.BooleanField(default=False)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     beds = models.IntegerField()
+    photo = models.CharField(max_length=200, unique=True, blank=True, null=True)
     hotel = models.ForeignKey(HotelEntity, on_delete=models.CASCADE)
 
 class UserEntity(models.Model):
