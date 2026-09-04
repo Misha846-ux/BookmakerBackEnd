@@ -14,6 +14,7 @@ urlpatterns = [
     path("hotels/advancedFilter/", AdvencedSearch),
     path("hotels/<int:hotel_id>/photos/", uploadHotelPhotos),
     path("hotels/<int:hotel_id>/photos/", getHotelPhotos),
+    path("hotels/<int:hotel_id>/rooms/", getHotelRooms),
     path("rooms/<int:room_id>/photos/", uploadRoomPhotos),
     path("rooms/<int:room_id>/photos/", getRoomPhotos),
     path("hotels/get/", getHotels),
