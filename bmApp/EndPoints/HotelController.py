@@ -1,5 +1,5 @@
 # for endPoints that working with Hotels
-from django.db.models import Exists, OuterRef, Avg, Min
+from django.db.models import Exists, OuterRef, Avg, Min, Case, When, Value, F, IntegerField
 from rest_framework.response import Response # type: ignore
 from rest_framework.decorators import api_view # type: ignore
 from rest_framework.response import Response # type: ignore
@@ -264,3 +264,82 @@ def getHotelPhotos(request, hotel_id):
         return Response({'error': f'Error reading photos: {str(e)}'}, status=500)
     
     return Response({'photos': photos}, status=200)
+
+@api_view(['POST'])
+def getHotelRooms(request, hotel_id):
+    try:
+        hotel = HotelEntity.objects.get(id=hotel_id)
+    except HotelEntity.DoesNotExist:
+        return Response({'error': 'Hotel not found'}, status=404)
+
+    dto = AdvancedSearchDTO(data=request.data)
+    dto.is_valid(raise_exception=True)
+    data = dto.validated_data
+
+    try:
+        el = int(request.query_params.get("el", 10))
+        page = int(request.query_params.get("page", 1))
+    except (ValueError, TypeError):
+        return Response({'error': 'Parameters el and page must be positive integers.'}, status=400)
+
+    if el < 1 or page < 1:
+        return Response({'error': 'Parameters el and page must be positive integers.'}, status=400)
+
+    rooms = RoomEntity.objects.filter(hotel_id=hotel_id)
+
+    if data.get("people"):
+        rooms = rooms.filter(beds__gte=data["people"])
+
+    if data.get("nightPrice"):
+        rooms = rooms.filter(price__lte=data["nightPrice"])
+
+    check_in = data.get("checkIn")
+    check_out = data.get("checkOut")
+
+    if check_in or check_out:
+        check_in_date = check_in.date() if check_in else None
+        check_out_date = check_out.date() if check_out else None
+
+        reserved_rooms = ReservationEntity.objects.filter(room=OuterRef("pk"))
+
+        if check_in_date and not check_out_date:
+            reserved_rooms = reserved_rooms.filter(checkIn__lte=check_in_date, checkOut__gt=check_in_date)
+        elif check_out_date and not check_in_date:
+            reserved_rooms = reserved_rooms.filter(checkIn__lt=check_out_date, checkOut__gt=check_out_date)
+        else:
+            reserved_rooms = reserved_rooms.filter(checkIn__lt=check_out_date, checkOut__gt=check_in_date)
+
+        rooms = rooms.annotate(is_reserved=Exists(reserved_rooms)).filter(is_reserved=False)
+
+    annotations = {}
+    order_fields = []
+
+    if data.get("nightPrice"):
+        annotations['price_closeness'] = F('price')
+        order_fields.append('-price_closeness')
+
+    if data.get("wifi"):
+        annotations['wifi_match'] = Case(When(wifi=True, then=Value(1)), default=Value(0), output_field=IntegerField())
+        order_fields.append('-wifi_match')
+
+    order_fields.append('id')
+
+    if annotations:
+        rooms = rooms.annotate(**annotations)
+
+    rooms = rooms.order_by(*order_fields)
+
+    total = rooms.count()
+    start = (page - 1) * el
+    end = start + el
+    rooms = rooms[start:end]
+
+    serializer = RoomSerializer(rooms, many=True)
+
+    return Response({
+        'count': total,
+        'page': page,
+        'el': el,
+        'total_pages': (total + el - 1) // el,
+        'results': serializer.data
+    }, status=200)
