@@ -5,10 +5,14 @@ from .EndPoints.UserController import *
 from .EndPoints.HotelController import *
 from .EndPoints.RoomController import *
 
+from rest_framework_simplejwt.views import TokenRefreshView
+
 urlpatterns = [
     path("user/sendAuthCode", sendAuthCode),
     path("user/createAccount", createAccount),
     path("user/verifyAccount", verifyAccount),
+    path("user/login", login),
+    path("user/token/refresh", TokenRefreshView.as_view()),
     path("user/<int:user_id>/profile", updateUserProfile),
     path("hotels/advancedFilter/", AdvencedSearch),
     path("hotels/<int:hotel_id>/photos/", uploadHotelPhotos),

@@ -55,6 +55,14 @@ class UserEntity(models.Model):
     currency = models.ForeignKey(CurrencyEntity, blank=True, null=True, on_delete=models.SET_NULL)
     payMethod = models.ForeignKey(PaymentMethodEntity, blank=True, null=True, on_delete=models.SET_NULL)
 
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
 class ReservationEntity(models.Model):
     checkIn = models.DateField()
     checkOut = models.DateField()
