@@ -5,6 +5,7 @@ class CountryEntity(models.Model):
 
 class CityEntity(models.Model):
     name = models.CharField(max_length=200)
+    center = models.CharField(max_length=200, blank=True, null=True)
     country = models.ForeignKey(CountryEntity, on_delete=models.CASCADE)
 
 class CurrencyEntity(models.Model):
