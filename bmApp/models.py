@@ -5,8 +5,10 @@ class CountryEntity(models.Model):
 
 class CityEntity(models.Model):
     name = models.CharField(max_length=200)
-    center = models.CharField(max_length=200, blank=True, null=True)
-    country = models.ForeignKey(CountryEntity, on_delete=models.CASCADE)
+    center = models.CharField(max_length=200,blank=True,null=True,)
+    center_latitude = models.DecimalField(max_digits=9,decimal_places=6,blank=True,null=True,)
+    center_longitude = models.DecimalField(max_digits=9,decimal_places=6,blank=True,null=True,)
+    country = models.ForeignKey(CountryEntity,on_delete=models.CASCADE,)
 
 class CurrencyEntity(models.Model):
     currency = models.CharField(max_length=200, unique=True)
@@ -18,6 +20,8 @@ class HotelEntity(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
     address = models.CharField(max_length=200)
+    latitude = models.DecimalField(max_digits=9,decimal_places=6,null=True)
+    longitude = models.DecimalField(max_digits=9,decimal_places=6,null=True)
     phone = models.CharField(max_length=200, unique=True)
     email = models.CharField(max_length=200, unique=True)
     stars = models.IntegerField(default=0)

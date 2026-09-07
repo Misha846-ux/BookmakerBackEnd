@@ -2,6 +2,7 @@ from typing import Any, Dict
 from decimal import Decimal
 from datetime import datetime
 from dataclasses import dataclass 
+from .functions.HotelFunctions import *
 from rest_framework import serializers # type: ignore
 # ignore сделан для того чтобы Pylance не ругался, особой роли он не играет и это не является ошибкой.
 
@@ -26,15 +27,98 @@ class CountrySerializer(serializers.ModelSerializer):
         ]
 
 class CitySerializer(serializers.ModelSerializer):
-    country = serializers.PrimaryKeyRelatedField(queryset=CountryEntity.objects.all())
+
+    country = serializers.PrimaryKeyRelatedField(
+        queryset=CountryEntity.objects.all()
+    )
+
+    center_latitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        read_only=True,
+    )
+
+    center_longitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        read_only=True,
+    )
+
     class Meta:
         model = CityEntity
+
         fields = [
             'id',
             'name',
             'center',
-            'country'
+            'center_latitude',
+            'center_longitude',
+            'country',
         ]
+
+    def create(self, validated_data):
+        country = validated_data['country']
+        center = validated_data.get('center')
+
+        if center:
+            coordinates = get_coordinates(
+                address=center,
+                city=validated_data['name'],
+                country=country.name,
+            )
+
+            if coordinates is None:
+                raise serializers.ValidationError({
+                    'center': 'Could not determine city center coordinates.'
+                })
+
+            latitude, longitude = coordinates
+
+            validated_data['center_latitude'] = latitude
+            validated_data['center_longitude'] = longitude
+
+        return CityEntity.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        country = validated_data.get(
+            'country',
+            instance.country,
+        )
+
+        name = validated_data.get(
+            'name',
+            instance.name,
+        )
+
+        center = validated_data.get(
+            'center',
+            instance.center,
+        )
+
+        if (center and (center != instance.center or name != instance.name
+                or country != instance.country)):
+            coordinates = get_coordinates(
+                address=center,
+                city=name,
+                country=country.name,
+            )
+
+            if coordinates is None:
+                raise serializers.ValidationError({
+                    'center': 'Could not determine city center coordinates.'
+                })
+
+            latitude, longitude = coordinates
+
+            validated_data['center_latitude'] = latitude
+            validated_data['center_longitude'] = longitude
+
+        instance = super().update(
+            instance,
+            validated_data,
+        )
+
+        return instance
 
 class CurrencySerializer(serializers.ModelSerializer):
     class Meta:
@@ -64,8 +148,24 @@ class PaymentMethodSerializer(serializers.ModelSerializer):
             'date'
         ]
 
+
 class HotelSerializer(serializers.ModelSerializer):
-    city = serializers.PrimaryKeyRelatedField(queryset=CityEntity.objects.all())
+
+    city = serializers.PrimaryKeyRelatedField(
+        queryset=CityEntity.objects.all()
+    )
+
+    latitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        read_only=True,
+    )
+
+    longitude = serializers.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        read_only=True,
+    )
 
     class Meta:
         model = HotelEntity
@@ -74,17 +174,47 @@ class HotelSerializer(serializers.ModelSerializer):
             'name',
             'description',
             'address',
+            'latitude',
+            'longitude',
             'phone',
             'email',
             'stars',
             'photo',
-            'city'
+            'city',
         ]
 
     def validate_stars(self, value: int) -> int:
         if value < 0 or value > 5:
-            raise serializers.ValidationError('Hotel stars must be between 0 and 5.')
+            raise serializers.ValidationError(
+                'Hotel stars must be between 0 and 5.'
+            )
+
         return value
+
+    def create(self, validated_data):
+        from .services.geocoding import get_coordinates
+
+        city = validated_data['city']
+
+        coordinates = get_coordinates(
+            address=validated_data['address'],
+            city=city.name,
+            country=city.country.name,
+        )
+
+        if coordinates is None:
+            raise serializers.ValidationError({
+                'address': 'Could not determine hotel coordinates from the provided address.'
+            })
+
+        latitude, longitude = coordinates
+
+        validated_data['latitude'] = latitude
+        validated_data['longitude'] = longitude
+
+        return HotelEntity.objects.create(**validated_data)
+
+
 
 class RoomSerializer(serializers.ModelSerializer):
     hotel = serializers.PrimaryKeyRelatedField(queryset=HotelEntity.objects.all())

@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view # type: ignore
 from rest_framework.response import Response # type: ignore
 from ..serializers import *
 from ..models import *
+from ..functions.HotelFunctions import *
 import os
 from django.conf import settings
 from django.urls import reverse
@@ -343,3 +344,150 @@ def getHotelRooms(request, hotel_id):
         'total_pages': (total + el - 1) // el,
         'results': serializer.data
     }, status=200)
+
+@api_view(['GET'])
+def getHotelNearestTrainStation(request, hotel_id):
+
+    try:
+        hotel = HotelEntity.objects.select_related(
+            'city',
+            'city__country',
+        ).get(id=hotel_id)
+
+    except HotelEntity.DoesNotExist:
+        return Response(
+            {'error': 'Hotel not found.'},
+            status=404,
+        )
+
+    if hotel.latitude is None or hotel.longitude is None:
+        return Response(
+            {'error': 'Hotel coordinates are not available.'},
+            status=400
+        )
+
+    place = get_nearest_place(
+        float(hotel.latitude),
+        float(hotel.longitude),
+        'train_station',
+    )
+
+    if place is None:
+        return Response(
+            {'error': 'Train station not found.'},
+            status=404,
+        )
+
+    address = get_address_by_coordinates(
+        place['latitude'],
+        place['longitude'],
+    )
+
+    return Response(
+        {
+            'hotel_id': hotel.id,
+            'type': 'train_station',
+            'address': address,
+            'distance': place['distance'],
+        },status=200,
+    )
+
+
+@api_view(['GET'])
+def getHotelNearestAirport(request, hotel_id):
+
+    try:
+        hotel = HotelEntity.objects.select_related(
+            'city',
+            'city__country',
+        ).get(id=hotel_id)
+
+    except HotelEntity.DoesNotExist:
+        return Response(
+            {'error': 'Hotel not found.'},
+            status=404,
+        )
+
+    if hotel.latitude is None or hotel.longitude is None:
+        return Response(
+            {'error': 'Hotel coordinates are not available.'},
+            status=400,
+        )
+
+    place = get_nearest_place(
+        float(hotel.latitude),
+        float(hotel.longitude),
+        'airport',
+    )
+
+    if place is None:
+        return Response(
+            {'error': 'Airport not found.'},
+            status=404,
+        )
+
+    address = get_address_by_coordinates(
+        place['latitude'],
+        place['longitude'],
+    )
+
+    return Response(
+        {
+            'hotel_id': hotel.id,
+            'type': 'airport',
+            'address': address,
+            'distance': place['distance'],
+        },
+        status=200,
+    )
+
+
+@api_view(['GET'])
+def getHotelCityCenter(request, hotel_id):
+
+    try:
+        hotel = HotelEntity.objects.select_related(
+            'city',
+            'city__country',
+        ).get(id=hotel_id)
+
+    except HotelEntity.DoesNotExist:
+        return Response(
+            {'error': 'Hotel not found.'},
+            status=404,
+        )
+
+    if hotel.latitude is None or hotel.longitude is None:
+        return Response(
+            {'error': 'Hotel coordinates are not available.'},
+            status=400,
+        )
+
+    city = hotel.city
+
+    if (
+        city.center_latitude is None
+        or city.center_longitude is None
+    ):
+        return Response(
+            {'error': 'City center coordinates are not available.'},
+            status=400,
+        )
+
+    distance = calculate_distance(
+        float(hotel.latitude),
+        float(hotel.longitude),
+        float(city.center_latitude),
+        float(city.center_longitude),
+    )
+
+    return Response(
+        {
+            'hotel_id': hotel.id,
+            'type': 'city_center',
+            'address': city.center,
+            'distance': distance,
+        },
+        status=200,
+    )
+
