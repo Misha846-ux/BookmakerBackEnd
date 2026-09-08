@@ -81,13 +81,13 @@ def get_nearest_place(latitude: float, longitude: float, place_type: str,) -> Op
 
     (
         node[{osm_filter}]
-            (around:{settings.PLACE_SEARCH_RADIUS},{latitude},{longitude});
+            (around:{settings.AIRPORT_SEARCH_RADIUS},{latitude},{longitude});
 
         way[{osm_filter}]
-            (around:{settings.PLACE_SEARCH_RADIUS},{latitude},{longitude});
+            (around:{settings.AIRPORT_SEARCH_RADIUS},{latitude},{longitude});
 
         relation[{osm_filter}]
-            (around:{settings.PLACE_SEARCH_RADIUS},{latitude},{longitude});
+            (around:{settings.AIRPORT_SEARCH_RADIUS},{latitude},{longitude});
     );
 
     out center;

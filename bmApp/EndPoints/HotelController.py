@@ -91,10 +91,10 @@ def getHotels(request):
         'results': serializer.data
     })
 
-
+@api_view(['GET'])
 def AdvencedSearch(request):
     dto = AdvancedSearchDTO(data=request.data)
-    dto.is_valid(raise_exeption=True)
+    dto.is_valid(raise_exception=True)
 
     data = dto.validated_data
 
@@ -266,7 +266,7 @@ def getHotelPhotos(request, hotel_id):
     
     return Response({'photos': photos}, status=200)
 
-@api_view(['POST'])
+@api_view(['GET'])
 def getHotelRooms(request, hotel_id):
     try:
         hotel = HotelEntity.objects.get(id=hotel_id)
