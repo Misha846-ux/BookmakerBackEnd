@@ -215,6 +215,13 @@ class HotelSerializer(serializers.ModelSerializer):
         return HotelEntity.objects.create(**validated_data)
 
 
+class GetHotelsDTO(serializers.Serializer):
+    city = serializers.IntegerField(required=False, allow_null=True)
+    minPrice = serializers.FloatField(required=False, allow_null=True, min_value=0)
+    rating = serializers.FloatField(required=False, allow_null=True)
+    stars = serializers.IntegerField(required=False, allow_null=True, min_value=0, max_value=5)
+
+
 
 class RoomSerializer(serializers.ModelSerializer):
     hotel = serializers.PrimaryKeyRelatedField(queryset=HotelEntity.objects.all())

@@ -6,7 +6,7 @@ from ..models import CityEntity
 from ..serializers import CitySerializer
 
 
-@api_view(['GET'])
+@api_view(['PUT'])
 def getCities(request):
     cities = CityEntity.objects.all()
 
@@ -21,7 +21,7 @@ def getCities(request):
     )
 
 
-@api_view(['GET'])
+@api_view(['PUT'])
 def getCity(request, city_id):
     try:
         city = CityEntity.objects.get(id=city_id)

@@ -55,7 +55,7 @@ def uploadRoomPhotos(request, room_id):
     
     return Response({'message': 'Photo uploaded successfully', 'photo_url': f'{settings.MEDIA_URL}{photo_dir}{unique_filename}'}, status=201)
 
-@api_view(['GET'])
+@api_view(['PUT'])
 def getRoomPhotos(request, room_id):
     try:
         room = RoomEntity.objects.get(id=room_id)

@@ -29,17 +29,21 @@ def createHotel(request):
         status=400
     )
 
-@api_view(['GET'])
+@api_view(['PUT'])
 def getHotels(request):
+
+    dto = GetHotelsDTO(data=request.data)
+    dto.is_valid(raise_exception=True)
+    data = dto.validated_data
 
     hotels = HotelEntity.objects.all()
 
-    city = request.query_params.get('city')
+    city = data.get('city')
 
     if city:
         hotels = hotels.filter(city_id=city)
 
-    min_price = request.query_params.get('minPrice')
+    min_price = data.get('minPrice')
 
     if min_price:
         hotels = hotels.annotate(
@@ -48,7 +52,7 @@ def getHotels(request):
             min_room_price__gte=min_price
         )
 
-    rating = request.query_params.get('rating')
+    rating = data.get('rating')
 
     if rating:
         hotels = hotels.annotate(
@@ -57,7 +61,7 @@ def getHotels(request):
             average_rate__gte=rating
         )
 
-    stars = request.query_params.get('stars')
+    stars = data.get('stars')
 
     if stars:
         hotels = hotels.filter(
@@ -67,9 +71,20 @@ def getHotels(request):
     # Remove duplicates
     hotels = hotels.distinct()
 
-    page = int(request.query_params.get('page', 1))
+    try:
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('el', 30))
+    except (ValueError, TypeError):
+        return Response(
+            {'error': 'Parameters el and page must be positive integers.'},
+            status=400,
+        )
 
-    page_size = 30
+    if page < 1 or page_size < 1:
+        return Response(
+            {'error': 'Parameters el and page must be positive integers.'},
+            status=400,
+        )
 
     start = (page - 1) * page_size
     end = start + page_size
@@ -91,7 +106,7 @@ def getHotels(request):
         'results': serializer.data
     })
 
-@api_view(['GET'])
+@api_view(['PUT'])
 def AdvencedSearch(request):
     dto = AdvancedSearchDTO(data=request.data)
     dto.is_valid(raise_exception=True)
@@ -239,7 +254,7 @@ def uploadHotelPhotos(request, hotel_id):
     
     return Response({'message': 'Photo uploaded successfully', 'photo_url': f'{settings.MEDIA_URL}{photo_dir}{unique_filename}'}, status=201)
 
-@api_view(['GET'])
+@api_view(['PUT'])
 def getHotelPhotos(request, hotel_id):
     try:
         hotel = HotelEntity.objects.get(id=hotel_id)
@@ -266,7 +281,7 @@ def getHotelPhotos(request, hotel_id):
     
     return Response({'photos': photos}, status=200)
 
-@api_view(['GET'])
+@api_view(['PUT'])
 def getHotelRooms(request, hotel_id):
     try:
         hotel = HotelEntity.objects.get(id=hotel_id)
@@ -345,7 +360,7 @@ def getHotelRooms(request, hotel_id):
         'results': serializer.data
     }, status=200)
 
-@api_view(['GET'])
+@api_view(['PUT'])
 def getHotelNearestTrainStation(request, hotel_id):
 
     try:
@@ -393,7 +408,7 @@ def getHotelNearestTrainStation(request, hotel_id):
     )
 
 
-@api_view(['GET'])
+@api_view(['PUT'])
 def getHotelNearestAirport(request, hotel_id):
 
     try:
@@ -442,7 +457,7 @@ def getHotelNearestAirport(request, hotel_id):
     )
 
 
-@api_view(['GET'])
+@api_view(['PUT'])
 def getHotelCityCenter(request, hotel_id):
 
     try:
