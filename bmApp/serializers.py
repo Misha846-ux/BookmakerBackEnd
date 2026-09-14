@@ -210,7 +210,7 @@ class ReservationSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'checkOut': 'Check-out date must be later than check-in date.'})
         return attrs
 
-
+@dataclass
 class AuthAccountDTO():
     email: str
     password: str

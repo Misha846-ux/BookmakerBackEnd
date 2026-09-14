@@ -1,5 +1,8 @@
 # for endPoints that working with user account.
 from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+# If you want to protect function with jwt use decorator @permission_classes([IsAuthenticated])
 from rest_framework.decorators import api_view
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import IntegrityError
@@ -48,6 +51,7 @@ def createAccount(request):
                 status=500
             )
 
+@api_view(['PUT'])
 def verifyAccount(request):
     data = json.loads(request.body)
     if request.method == "PUT":

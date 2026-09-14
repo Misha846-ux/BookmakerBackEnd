@@ -1,4 +1,7 @@
 # for endPoints that working with Hotels
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+# If you want to function class with jwt use decorator @permission_classes([IsAuthenticated])
 from django.db.models import Exists, OuterRef, Avg, Min
 from rest_framework.response import Response # type: ignore
 from rest_framework.decorators import api_view # type: ignore
