@@ -289,13 +289,13 @@ def getHotelPhotos(request, hotel_id):
     
     photos = []
     try:
-        for filename in os.listdir(photo_dir_path):
-            file_path = os.path.join(photo_dir_path, filename)
-            if os.path.isfile(file_path):
+        for entry in os.scandir(photo_dir_path):
+            if entry.is_file():
                 photo_url = request.build_absolute_uri(
-                    f'{settings.MEDIA_URL}{hotel.photo}{filename}'
+                    f'{settings.MEDIA_URL}{hotel.photo}{entry.name}'
                 )
                 photos.append({'photo': photo_url})
+                break
     except Exception as e:
         return Response({'error': f'Error reading photos: {str(e)}'}, status=500)
     
@@ -363,7 +363,7 @@ def getHotelRooms(request, hotel_id):
     if annotations:
         rooms = rooms.annotate(**annotations)
 
-    rooms = rooms.order_by(*order_fields)
+    rooms = rooms.order_by('price', *order_fields)
 
     total = rooms.count()
     start = (page - 1) * el

@@ -15,7 +15,8 @@ from .models import (
     PaymentMethodEntity,
     RoomEntity,
     UserEntity,
-    ReservationEntity
+    ReservationEntity,
+    ReviewEntity,
 )
 
 class CountrySerializer(serializers.ModelSerializer):
@@ -192,8 +193,6 @@ class HotelSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        from .services.geocoding import get_coordinates
-
         city = validated_data['city']
 
         coordinates = get_coordinates(
@@ -274,6 +273,18 @@ class UserSerializer(serializers.ModelSerializer):
             'city',
             'currency',
             'payMethod'
+        ]
+
+class ReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReviewEntity
+        fields = [
+            'id',
+            'review',
+            'createdAt',
+            'user',
+            'hotel',
+            'rating',
         ]
 
 class UserProfileUpdateSerializer(serializers.Serializer):

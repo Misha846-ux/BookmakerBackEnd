@@ -6,6 +6,7 @@ from .EndPoints.HotelController import *
 from .EndPoints.RoomController import *
 from .EndPoints.PaymentMethodController import createPaymentMethod, getPaymentMethod, getPaymentMethods
 from .EndPoints.ReservationController import createReservation
+from .EndPoints.ReviewController import getHotelReviews
 
 urlpatterns = [
     path("user/sendAuthCode", sendAuthCode),
@@ -20,6 +21,7 @@ urlpatterns = [
     path("hotels/create/", createHotel),
     path("hotels/<int:hotel_id>/NearestTrainStation/", getHotelNearestTrainStation),
     path("hotels/<int:hotel_id>/NearestAirport/", getHotelNearestAirport),
+    path("hotels/<int:hotel_id>/reviews/", getHotelReviews),
     path('hotels/<int:hotel_id>/CityCenter/', getHotelCityCenter,),
     path("rooms/post/<int:room_id>/photos/", uploadRoomPhotos),
     path("rooms/get/<int:room_id>/photos/", getRoomPhotos),
