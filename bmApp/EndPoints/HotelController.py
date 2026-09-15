@@ -47,7 +47,7 @@ def getHotels(request):
 
     if min_price:
         hotels = hotels.annotate(
-            min_room_price=Min("roomentity_set__price")
+            min_room_price=Min("roomentity__price")
         ).filter(
             min_room_price__gte=min_price
         )
@@ -56,7 +56,7 @@ def getHotels(request):
 
     if rating:
         hotels = hotels.annotate(
-            average_rate=Avg("reviewentity_set__rating")
+            average_rate=Avg("reviewentity__rating")
         ).filter(
             average_rate__gte=rating
         )
@@ -128,20 +128,20 @@ def AdvencedSearch(request):
         hotels = hotels.filter(city__name__iexact = data["city"])
 
     if data.get("people"):
-        hotels = hotels.filter(roomentity_set__beds__gte = data["people"])
+        hotels = hotels.filter(roomentity__beds__gte = data["people"])
 
     if data.get("nightPrice"):
-        hotels = hotels.filter(roomentity_set__price__lte = data["nightPrice"])
+        hotels = hotels.filter(roomentity__price__lte = data["nightPrice"])
 
     if data.get("rate"):
-        hotels = hotels.annotate(average_rate=Avg("reviewentity_set__rating")).filter(
+        hotels = hotels.annotate(average_rate=Avg("reviewentity__rating")).filter(
             average_rate__gte=data["rate"])
 
     if data.get("stars"):
         hotels = hotels.filter(stars__gte=data["stars"])
 
     if data.get("wifi"):
-        hotels = hotels.filter(roomentity_set__wifi=data["wifi"])
+        hotels = hotels.filter(roomentity__wifi=data["wifi"])
 
     check_in = data.get("checkIn")
     check_out = data.get("checkOut")
@@ -164,7 +164,7 @@ def AdvencedSearch(request):
         free_rooms = RoomEntity.objects.annotate(is_reserved=Exists(reserved_rooms)).filter(
             is_reserved=False)
 
-        hotels = hotels.filter(roomentity_set__in=free_rooms)
+        hotels = hotels.filter(roomentity__in=free_rooms)
 
     hotels = hotels.distinct()
     total = hotels.count()
@@ -194,7 +194,7 @@ def Search(request):
         hotels = hotels.filter(city__name__iexact = data["city"])
 
     if data.get("people"):
-        hotels = hotels.filter(roomentity_set__beds__gte=data["people"])
+        hotels = hotels.filter(roomentity__beds__gte=data["people"])
 
     check_in = data.get("checkIn")
     check_out = data.get("checkOut")
@@ -217,7 +217,7 @@ def Search(request):
         free_rooms = RoomEntity.objects.annotate(is_reserved=Exists(reserved_rooms)).filter(
             is_reserved=False)
 
-        hotels = hotels.filter(roomentity_set__in=free_rooms)
+        hotels = hotels.filter(roomentity__in=free_rooms)
 
     hotels = hotels.distinct()
 
