@@ -48,7 +48,7 @@ def calculate_distance(latitude1: float, longitude1: float,
     latitude1 = math.radians(latitude1)
     latitude2 = math.radians(latitude2)
 
-    delta_latitude = math.radians(latitude2 - latitude1)
+    delta_latitude = latitude2 - latitude1
     delta_longitude = math.radians(longitude2 - longitude1)
 
     a = (

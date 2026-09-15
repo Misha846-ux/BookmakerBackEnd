@@ -292,7 +292,9 @@ def getHotelPhotos(request, hotel_id):
         for filename in os.listdir(photo_dir_path):
             file_path = os.path.join(photo_dir_path, filename)
             if os.path.isfile(file_path):
-                photo_url = f'{settings.MEDIA_URL}{hotel.photo}{filename}'
+                photo_url = request.build_absolute_uri(
+                    f'{settings.MEDIA_URL}{hotel.photo}{filename}'
+                )
                 photos.append({'photo': photo_url})
     except Exception as e:
         return Response({'error': f'Error reading photos: {str(e)}'}, status=500)
@@ -417,10 +419,13 @@ def getHotelNearestTrainStation(request, hotel_id):
             status=404,
         )
 
-    address = get_address_by_coordinates(
-        place['latitude'],
-        place['longitude'],
-    )
+    try:
+        address = get_address_by_coordinates(
+            place['latitude'],
+            place['longitude'],
+        )
+    except requests.RequestException:
+        address = None
 
     return Response(
         {
@@ -471,10 +476,13 @@ def getHotelNearestAirport(request, hotel_id):
             status=404,
         )
 
-    address = get_address_by_coordinates(
-        place['latitude'],
-        place['longitude'],
-    )
+    try:
+        address = get_address_by_coordinates(
+            place['latitude'],
+            place['longitude'],
+        )
+    except requests.RequestException:
+        address = None
 
     return Response(
         {

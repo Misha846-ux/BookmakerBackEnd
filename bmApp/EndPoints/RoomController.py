@@ -75,7 +75,9 @@ def getRoomPhotos(request, room_id):
         for filename in os.listdir(photo_dir_path):
             file_path = os.path.join(photo_dir_path, filename)
             if os.path.isfile(file_path):
-                photo_url = f'{settings.MEDIA_URL}{room.photo}{filename}'
+                photo_url = request.build_absolute_uri(
+                    f'{settings.MEDIA_URL}{room.photo}{filename}'
+                )
                 photos.append({'photo': photo_url})
     except Exception as e:
         return Response({'error': f'Error reading photos: {str(e)}'}, status=500)
