@@ -75,31 +75,46 @@ def get_nearest_place(latitude: float, longitude: float, place_type: str,) -> Op
 
     osm_filter = PLACE_TYPES[place_type]
 
-    # Хз как это работает но это работает. Я из будующего не трогай это сломаешь потом не починешь
+    search_radius = min(settings.AIRPORT_SEARCH_RADIUS, 30_000)
     query = f'''
-    [out:json];
+    [out:json][timeout:25];
 
     (
         node[{osm_filter}]
-            (around:{settings.AIRPORT_SEARCH_RADIUS},{latitude},{longitude});
+            (around:{search_radius},{latitude},{longitude});
 
         way[{osm_filter}]
-            (around:{settings.AIRPORT_SEARCH_RADIUS},{latitude},{longitude});
+            (around:{search_radius},{latitude},{longitude});
 
         relation[{osm_filter}]
-            (around:{settings.AIRPORT_SEARCH_RADIUS},{latitude},{longitude});
+            (around:{search_radius},{latitude},{longitude});
     );
 
     out center;
     '''
 
-    response = requests.post(
+    endpoints = [
         settings.OVERPASS_URL,
-        data=query,
-        timeout=settings.MAP_API_TIMEOUT,
-    )
-
-    response.raise_for_status()
+        *getattr(settings, 'OVERPASS_FALLBACK_URLS', []),
+    ]
+    last_error = None
+    for endpoint in dict.fromkeys(url for url in endpoints if url):
+        try:
+            response = requests.post(
+                endpoint,
+                data=query,
+                headers={
+                    'Accept': 'application/json',
+                    'User-Agent': settings.NOMINATIM_USER_AGENT,
+                },
+                timeout=settings.MAP_API_TIMEOUT,
+            )
+            response.raise_for_status()
+            break
+        except requests.RequestException as error:
+            last_error = error
+    else:
+        raise last_error
 
     data = response.json()
 

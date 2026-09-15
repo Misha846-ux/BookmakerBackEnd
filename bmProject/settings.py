@@ -145,6 +145,10 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
 NOMINATIM_URL = os.getenv('NOMINATIM_URL')
 OVERPASS_URL = os.getenv('OVERPASS_URL')
+OVERPASS_FALLBACK_URLS = [
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+]
 AIRPORT_SEARCH_RADIUS = int(os.getenv('AIRPORT_SEARCH_RADIUS'))
 NOMINATIM_USER_AGENT = os.getenv('NOMINATIM_USER_AGENT')
 MAP_API_TIMEOUT = int(os.getenv('MAP_API_TIMEOUT'))

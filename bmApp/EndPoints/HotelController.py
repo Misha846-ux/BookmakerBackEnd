@@ -7,9 +7,27 @@ from ..serializers import *
 from ..models import *
 from ..functions.HotelFunctions import *
 import os
+import requests
 from django.conf import settings
 from django.urls import reverse
 import uuid
+
+
+def _ensure_hotel_coordinates(hotel):
+    if hotel.latitude is not None and hotel.longitude is not None:
+        return True
+
+    coordinates = get_coordinates(
+        address=hotel.address,
+        city=hotel.city.name,
+        country=hotel.city.country.name,
+    )
+    if coordinates is None:
+        return False
+
+    hotel.latitude, hotel.longitude = coordinates
+    hotel.save(update_fields=['latitude', 'longitude'])
+    return True
 
 @api_view(['POST'])
 def createHotel(request):
@@ -375,17 +393,23 @@ def getHotelNearestTrainStation(request, hotel_id):
             status=404,
         )
 
-    if hotel.latitude is None or hotel.longitude is None:
+    if not _ensure_hotel_coordinates(hotel):
         return Response(
             {'error': 'Hotel coordinates are not available.'},
             status=400
         )
 
-    place = get_nearest_place(
-        float(hotel.latitude),
-        float(hotel.longitude),
-        'train_station',
-    )
+    try:
+        place = get_nearest_place(
+            float(hotel.latitude),
+            float(hotel.longitude),
+            'train_station',
+        )
+    except requests.RequestException:
+        return Response(
+            {'error': 'Train station service is temporarily unavailable.'},
+            status=503,
+        )
 
     if place is None:
         return Response(
@@ -423,17 +447,23 @@ def getHotelNearestAirport(request, hotel_id):
             status=404,
         )
 
-    if hotel.latitude is None or hotel.longitude is None:
+    if not _ensure_hotel_coordinates(hotel):
         return Response(
             {'error': 'Hotel coordinates are not available.'},
             status=400,
         )
 
-    place = get_nearest_place(
-        float(hotel.latitude),
-        float(hotel.longitude),
-        'airport',
-    )
+    try:
+        place = get_nearest_place(
+            float(hotel.latitude),
+            float(hotel.longitude),
+            'airport',
+        )
+    except requests.RequestException:
+        return Response(
+            {'error': 'Airport service is temporarily unavailable.'},
+            status=503,
+        )
 
     if place is None:
         return Response(
