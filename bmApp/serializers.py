@@ -380,3 +380,15 @@ class HotelSearchDTO(serializers.Serializer):
     checkIn = serializers.DateTimeField(required=False, allow_null=True)
     checkOut = serializers.DateTimeField(required=False, allow_null=True)
     people = serializers.IntegerField(required=False, allow_null=True,min_value=1)
+
+
+class HotelCardDataSerializer(serializers.Serializer):
+    hotel = HotelSerializer()
+    photos = serializers.ListField(child=serializers.DictField())
+    nearest_airport_distance = serializers.IntegerField(allow_null=True)
+    nearest_train_distance = serializers.IntegerField(allow_null=True)
+    review_count = serializers.IntegerField()
+    average_rating = serializers.FloatField(allow_null=True)
+    cheapest_room_price = serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True)
+    cheapest_room_beds = serializers.IntegerField(allow_null=True)
+    cheapest_room_wifi = serializers.BooleanField(allow_null=True)

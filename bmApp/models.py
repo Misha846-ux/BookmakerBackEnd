@@ -24,9 +24,11 @@ class HotelEntity(models.Model):
     longitude = models.DecimalField(max_digits=9,decimal_places=6,null=True)
     phone = models.CharField(max_length=200, unique=True)
     email = models.CharField(max_length=200, unique=True)
-    stars = models.IntegerField(default=0)
-    photo = models.CharField(max_length=200, unique=True, blank=True, null=True) #Ведёт к дерикторию где лежат футажи
+    stars = models.IntegerField(default=0, db_index=True)
+    photo = models.CharField(max_length=200, unique=True, blank=True, null=True)
     city = models.ForeignKey(CityEntity, on_delete=models.CASCADE)
+    nearest_airport_distance = models.IntegerField(null=True, blank=True)
+    nearest_train_distance = models.IntegerField(null=True, blank=True)
 
 class PaymentMethodEntity(models.Model):
     cardType = models.ForeignKey(DebitCardEntity, on_delete=models.CASCADE)
@@ -39,7 +41,7 @@ class RoomEntity(models.Model):
     wifi = models.BooleanField(default=False)
     privatePool = models.BooleanField(default=False)
     Bath = models.BooleanField(default=False)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2, db_index=True)
     beds = models.IntegerField()
     photo = models.CharField(max_length=200, unique=True, blank=True, null=True)
     hotel = models.ForeignKey(HotelEntity, on_delete=models.CASCADE)
@@ -77,7 +79,7 @@ class ReviewEntity(models.Model):
     review = models.TextField()
     createdAt = models.DateTimeField()
     user = models.ForeignKey(UserEntity, on_delete=models.CASCADE)
-    hotel = models.ForeignKey(HotelEntity, on_delete=models.CASCADE)
+    hotel = models.ForeignKey(HotelEntity, on_delete=models.CASCADE, db_index=True)
     rating = models.IntegerField()
 
 

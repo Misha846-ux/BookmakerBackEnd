@@ -1,5 +1,5 @@
 # for endPoints that working with Hotels
-from django.db.models import Exists, OuterRef, Avg, Min, Case, When, Value, F, IntegerField
+from django.db.models import Exists, OuterRef, Avg, Min, Count, Case, When, Value, F, IntegerField
 from rest_framework.response import Response # type: ignore
 from rest_framework.decorators import api_view # type: ignore
 from rest_framework.response import Response # type: ignore
@@ -37,6 +37,31 @@ def createHotel(request):
     if serializer.is_valid():
         hotel = serializer.save()
 
+        if hotel.latitude is not None and hotel.longitude is not None:
+            try:
+                place = get_nearest_place(
+                    float(hotel.latitude),
+                    float(hotel.longitude),
+                    'airport',
+                )
+                if place is not None:
+                    hotel.nearest_airport_distance = place['distance']
+            except Exception:
+                pass
+
+            try:
+                place = get_nearest_place(
+                    float(hotel.latitude),
+                    float(hotel.longitude),
+                    'train_station',
+                )
+                if place is not None:
+                    hotel.nearest_train_distance = place['distance']
+            except Exception:
+                pass
+
+            hotel.save(update_fields=['nearest_airport_distance', 'nearest_train_distance'])
+
         return Response(
             HotelSerializer(hotel).data,
             status=201
@@ -54,7 +79,7 @@ def getHotels(request):
     dto.is_valid(raise_exception=True)
     data = dto.validated_data
 
-    hotels = HotelEntity.objects.all()
+    hotels = HotelEntity.objects.select_related('city', 'city__country').all()
 
     city = data.get('city')
 
@@ -137,7 +162,7 @@ def AdvencedSearch(request):
     if(page < 1):
         page = 1
 
-    hotels = HotelEntity.objects.all()
+    hotels = HotelEntity.objects.select_related('city', 'city__country').all()
 
     if data.get("land"):
         hotels = hotels.filter(city__country__name__iexact = data["land"])
@@ -194,7 +219,10 @@ def AdvencedSearch(request):
 
     serializer = HotelSerializer(hotels, many=True)
 
-    return Response(serializer.data, status = 200)
+    return Response({
+        'count': total,
+        'results': serializer.data,
+    }, status=200)
 
 
 def Search(request):
@@ -543,4 +571,99 @@ def getHotelCityCenter(request, hotel_id):
         },
         status=200,
     )
+
+
+@api_view(['PUT'])
+def getHotelCardData(request, hotel_id):
+    try:
+        hotel = HotelEntity.objects.select_related(
+            'city',
+            'city__country',
+        ).get(id=hotel_id)
+    except HotelEntity.DoesNotExist:
+        return Response({'error': 'Hotel not found'}, status=404)
+
+    return Response(_build_card_data(hotel, request), status=200)
+
+
+@api_view(['POST'])
+def getHotelCardDataBatch(request):
+    hotel_ids = request.data.get('hotel_ids', [])
+    if not isinstance(hotel_ids, list):
+        return Response({'error': 'hotel_ids must be a list'}, status=400)
+
+    hotels = HotelEntity.objects.select_related(
+        'city',
+        'city__country',
+    ).filter(id__in=hotel_ids)
+
+    return Response(
+        {h.id: _build_card_data(h, request) for h in hotels},
+        status=200,
+    )
+
+
+def _build_card_data(hotel, request):
+    photos = []
+    if hotel.photo:
+        photo_dir_path = os.path.join(settings.MEDIA_ROOT, hotel.photo)
+        if os.path.exists(photo_dir_path):
+            try:
+                files = [f for f in os.listdir(photo_dir_path) if os.path.isfile(os.path.join(photo_dir_path, f))]
+                if files:
+                    photo_url = request.build_absolute_uri(
+                        f'{settings.MEDIA_URL}{hotel.photo}{files[0]}'
+                    )
+                    photos.append({'photo': photo_url})
+            except Exception:
+                pass
+
+    review_stats = ReviewEntity.objects.filter(hotel=hotel).aggregate(
+        count=Count('id'),
+        avg_rating=Avg('rating'),
+    )
+    review_count = review_stats['count'] or 0
+    average_rating = round(review_stats['avg_rating'], 1) if review_stats['avg_rating'] is not None else None
+
+    cheapest_room = RoomEntity.objects.filter(hotel=hotel).order_by('price').first()
+
+    return {
+        'hotel': HotelSerializer(hotel).data,
+        'photos': photos,
+        'nearest_airport_distance': hotel.nearest_airport_distance,
+        'nearest_train_distance': hotel.nearest_train_distance,
+        'review_count': review_count,
+        'average_rating': average_rating,
+        'cheapest_room_price': cheapest_room.price if cheapest_room else None,
+        'cheapest_room_beds': cheapest_room.beds if cheapest_room else None,
+        'cheapest_room_wifi': cheapest_room.wifi if cheapest_room else None,
+    }
+
+
+@api_view(['GET'])
+def getFilterCounts(request):
+    hotels = HotelEntity.objects.all()
+
+    rating_counts = {}
+    for threshold in [6, 7, 8, 9]:
+        rating_counts[str(threshold)] = hotels.annotate(
+            avg=Avg('reviewentity__rating')
+        ).filter(avg__gte=threshold).count()
+
+    star_counts = {}
+    for stars in [1, 2, 3, 4, 5]:
+        star_counts[str(stars)] = hotels.filter(stars=stars).count()
+
+    wifi_count = RoomEntity.objects.filter(
+        wifi=True,
+    ).values('hotel').distinct().count()
+
+    return Response({
+        'rating': rating_counts,
+        'stars': star_counts,
+        'wifi': wifi_count,
+    }, status=200)
+
+
+
 
