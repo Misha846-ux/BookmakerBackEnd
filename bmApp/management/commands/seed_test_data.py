@@ -4,7 +4,7 @@ import requests
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from bmApp.models import CountryEntity
+from bmApp.models import CountryEntity, HotelEntity
 
 
 COUNTRIES_AND_CITIES = {
@@ -77,6 +77,7 @@ class Command(BaseCommand):
         self.base_url = options["base_url"].rstrip("/")
         self.timeout = options["timeout"]
         self.manual_fallbacks = []
+        self.distance_fallbacks = []
         self.session = requests.Session()
 
         try:
@@ -90,6 +91,11 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f"Loaded {len(cities)} cities and {len(hotels)} hotels through the API."
         ))
+        if self.distance_fallbacks:
+            self.stdout.write(self.style.WARNING(
+                "Distance fallback 10000 was used for: "
+                + ", ".join(self.distance_fallbacks)
+            ))
         if self.manual_fallbacks:
             self.stdout.write(self.style.WARNING(
                 "Manual database fallbacks were used: "
@@ -150,6 +156,7 @@ class Command(BaseCommand):
                         "city": cities[(hotel_data["country"], hotel_data["city"])]["id"],
                     },
                 ).json()
+            self._ensure_distance_values(hotel, hotel_data["email"])
             self._upload_file(
                 f"/hotels/post/{hotel['id']}/photos/",
                 source_directory / "Hotels" / hotel_data["source_photo"],
@@ -181,6 +188,25 @@ class Command(BaseCommand):
                 )
             loaded_hotels.append(hotel)
         return loaded_hotels
+
+    def _ensure_distance_values(self, hotel, email):
+        missing_fields = [
+            field for field in (
+                "nearest_airport_distance",
+                "nearest_train_distance",
+            ) if hotel.get(field) is None
+        ]
+        if not missing_fields:
+            return
+
+        database_hotel = HotelEntity.objects.get(pk=hotel["id"])
+        for field in missing_fields:
+            setattr(database_hotel, field, 10000)
+        database_hotel.save(update_fields=missing_fields)
+        self.distance_fallbacks.append(email)
+        self.manual_fallbacks.append(
+            f"{email} distance fields (no hotel update API endpoint exists)"
+        )
 
     def _get_existing_hotels(self):
         response = self._request("PUT", "/hotels/get/?el=100&page=1", json={})

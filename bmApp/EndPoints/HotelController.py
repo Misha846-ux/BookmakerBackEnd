@@ -36,6 +36,8 @@ def createHotel(request):
 
     if serializer.is_valid():
         hotel = serializer.save()
+        hotel.nearest_airport_distance = 10000
+        hotel.nearest_train_distance = 10000
 
         if hotel.latitude is not None and hotel.longitude is not None:
             try:
@@ -46,7 +48,7 @@ def createHotel(request):
                 )
                 if place is not None:
                     hotel.nearest_airport_distance = place['distance']
-            except Exception:
+            except requests.RequestException:
                 pass
 
             try:
@@ -57,10 +59,10 @@ def createHotel(request):
                 )
                 if place is not None:
                     hotel.nearest_train_distance = place['distance']
-            except Exception:
+            except requests.RequestException:
                 pass
 
-            hotel.save(update_fields=['nearest_airport_distance', 'nearest_train_distance'])
+        hotel.save(update_fields=['nearest_airport_distance', 'nearest_train_distance'])
 
         return Response(
             HotelSerializer(hotel).data,

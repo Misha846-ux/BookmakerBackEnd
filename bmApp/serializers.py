@@ -2,6 +2,7 @@ from typing import Any, Dict
 from decimal import Decimal
 from datetime import datetime
 from dataclasses import dataclass 
+from requests.exceptions import RequestException
 from .functions.HotelFunctions import *
 from rest_framework import serializers # type: ignore
 # ignore сделан для того чтобы Pylance не ругался, особой роли он не играет и это не является ошибкой.
@@ -62,21 +63,17 @@ class CitySerializer(serializers.ModelSerializer):
         center = validated_data.get('center')
 
         if center:
-            coordinates = get_coordinates(
-                address=center,
-                city=validated_data['name'],
-                country=country.name,
-            )
+            try:
+                coordinates = get_coordinates(
+                    address=center,
+                    city=validated_data['name'],
+                    country=country.name,
+                )
+            except (RequestException, KeyError, ValueError):
+                coordinates = None
 
-            if coordinates is None:
-                raise serializers.ValidationError({
-                    'center': 'Could not determine city center coordinates.'
-                })
-
-            latitude, longitude = coordinates
-
-            validated_data['center_latitude'] = latitude
-            validated_data['center_longitude'] = longitude
+            if coordinates is not None:
+                validated_data['center_latitude'], validated_data['center_longitude'] = coordinates
 
         return CityEntity.objects.create(**validated_data)
 
@@ -182,6 +179,8 @@ class HotelSerializer(serializers.ModelSerializer):
             'stars',
             'photo',
             'city',
+            'nearest_airport_distance',
+            'nearest_train_distance',
         ]
 
     def validate_stars(self, value: int) -> int:
@@ -195,21 +194,17 @@ class HotelSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         city = validated_data['city']
 
-        coordinates = get_coordinates(
-            address=validated_data['address'],
-            city=city.name,
-            country=city.country.name,
-        )
+        try:
+            coordinates = get_coordinates(
+                address=validated_data['address'],
+                city=city.name,
+                country=city.country.name,
+            )
+        except (RequestException, KeyError, ValueError):
+            coordinates = None
 
-        if coordinates is None:
-            raise serializers.ValidationError({
-                'address': 'Could not determine hotel coordinates from the provided address.'
-            })
-
-        latitude, longitude = coordinates
-
-        validated_data['latitude'] = latitude
-        validated_data['longitude'] = longitude
+        if coordinates is not None:
+            validated_data['latitude'], validated_data['longitude'] = coordinates
 
         return HotelEntity.objects.create(**validated_data)
 
