@@ -245,6 +245,22 @@ class RoomSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Number of beds must be greater than 0.')
         return value
 
+
+class ReviewSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    hotel = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = ReviewEntity
+        fields = [
+            'id',
+            'review',
+            'createdAt',
+            'user',
+            'hotel',
+            'rating',
+        ]
+
 class UserSerializer(serializers.ModelSerializer):
     email = serializers.EmailField()
     city = serializers.PrimaryKeyRelatedField(queryset=CityEntity.objects.all(), allow_null=True, required=False)
@@ -268,18 +284,6 @@ class UserSerializer(serializers.ModelSerializer):
             'city',
             'currency',
             'payMethod'
-        ]
-
-class ReviewSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ReviewEntity
-        fields = [
-            'id',
-            'review',
-            'createdAt',
-            'user',
-            'hotel',
-            'rating',
         ]
 
 class UserProfileUpdateSerializer(serializers.Serializer):
