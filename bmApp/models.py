@@ -34,7 +34,7 @@ class RoomEntity(models.Model):
     description = models.TextField(blank=True, null=True)
     wifi = models.BooleanField(default=False)
     privatePool = models.BooleanField(default=False)
-    Bath = models.BooleanField(default=False)
+    bath = models.BooleanField(default=False)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     beds = models.IntegerField()
     photo = models.CharField(max_length=200, unique=True, blank=True, null=True)
