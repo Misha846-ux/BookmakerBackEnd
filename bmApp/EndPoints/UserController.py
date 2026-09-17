@@ -1,5 +1,10 @@
 # for endPoints that working with user account.
 from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+# If you want to protect function with jwt use decorator @permission_classes([IsAuthenticated])
+from rest_framework.decorators import api_view
+from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import IntegrityError
 from django.contrib.auth.hashers import make_password, check_password
 from ..models import UserEntity
@@ -22,6 +27,7 @@ def sendAuthCode(request):
     else:
         return HttpResponseNotFound("Incorrect passwrod or email")
 
+@api_view(['POST'])
 def createAccount(request):
     data = json.loads(request.body)
     if request.method == "POST":
@@ -37,9 +43,15 @@ def createAccount(request):
             else:
                 user.hashPassword = make_password(authData.password)
                 user.save()
-        except:
-            return HttpResponse("Error")
+        # except:
+        #     return HttpResponse("Error")
+        except Exception as e:
+            return HttpResponse(
+                f"Error: {type(e).__name__}: {str(e)}",
+                status=500
+            )
 
+@api_view(['PUT'])
 def verifyAccount(request):
     data = json.loads(request.body)
     if request.method == "PUT":
@@ -54,6 +66,62 @@ def verifyAccount(request):
             return HttpResponse("OK", status=202)
         else:
             return HttpResponse("Incorrect passwrod or email")
+
+@api_view(['POST'])
+def login(request):
+    if request.method != "POST":
+        return JsonResponse(
+            {"error": "Method not allowed. Use POST."},
+            status=405
+        )
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse(
+            {"error": "Invalid JSON format."},
+            status=400
+        )
+
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        return JsonResponse(
+            {"error": "Email and password are required."},
+            status=400
+        )
+
+    try:
+        user = UserEntity.objects.get(email=email)
+    except UserEntity.DoesNotExist:
+        return JsonResponse(
+            {"error": "Incorrect email or password."},
+            status=401
+        )
+
+    if not check_password(password, user.hashPassword):
+        return JsonResponse(
+            {"error": "Incorrect email or password."},
+            status=401
+        )
+
+    if not user.created:
+        return JsonResponse(
+            {"error": "Account is not verified."},
+            status=403
+        )
+
+    refresh = RefreshToken()
+
+    refresh["user_id"] = user.id
+    refresh["email"] = user.email
+
+    return JsonResponse({
+        "access": str(refresh.access_token),
+        "refresh": str(refresh)
+    }, status=200)
+
 
 def updateUserProfile(request, user_id):
     if request.method != "PATCH":

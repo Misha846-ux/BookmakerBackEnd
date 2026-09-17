@@ -8,10 +8,14 @@ from .EndPoints.PaymentMethodController import createPaymentMethod, getPaymentMe
 from .EndPoints.ReservationController import createReservation
 from .EndPoints.ReviewController import getHotelReviews
 
+from rest_framework_simplejwt.views import TokenRefreshView
+
 urlpatterns = [
     path("user/sendAuthCode", sendAuthCode),
     path("user/createAccount", createAccount),
     path("user/verifyAccount", verifyAccount),
+    path("user/login", login),
+    path("user/token/refresh", TokenRefreshView.as_view()),
     path("user/<int:user_id>/profile", updateUserProfile),
     path("hotels/advancedFilter/", AdvencedSearch),
     path("hotels/post/<int:hotel_id>/photos/", uploadHotelPhotos),
