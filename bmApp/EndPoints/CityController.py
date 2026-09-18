@@ -2,8 +2,15 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 
-from ..models import CityEntity
-from ..serializers import CitySerializer
+from ..models import CityEntity, CountryEntity
+from ..serializers import CitySerializer, CountrySerializer
+
+
+@api_view(['GET'])
+def getCountries(request):
+    countries = CountryEntity.objects.all()
+    serializer = CountrySerializer(countries, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(['PUT'])

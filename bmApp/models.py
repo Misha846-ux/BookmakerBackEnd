@@ -50,9 +50,9 @@ class UserEntity(models.Model):
     name = models.CharField(max_length=200, blank=True)
     hashPassword = models.CharField(max_length=200)
     email = models.CharField(max_length=200, unique=True)
-    phone = models.CharField(max_length=200, unique=True, blank=True)
+    phone = models.CharField(max_length=200, null=True, blank=True)
     birthday = models.DateField(blank=True, null=True)
-    photo = models.CharField(max_length=200, unique=True, blank=True) #Путь к аватарке пользователя
+    photo = models.CharField(max_length=200, null=True, blank=True) #Путь к аватарке пользователя
     ampthill = models.CharField(max_length=200, blank=True)
     authCode = models.CharField(max_length=200, blank=True)
     authCodeCreatedAt = models.DateTimeField(blank=True, null=True)
