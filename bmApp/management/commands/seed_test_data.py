@@ -65,7 +65,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--timeout",
             type=float,
-            default=30,
+            default=120,
             help="HTTP request timeout in seconds.",
         )
 
