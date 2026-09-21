@@ -6,7 +6,7 @@ from .EndPoints.HotelController import *
 from .EndPoints.RoomController import *
 from .EndPoints.PaymentMethodController import createPaymentMethod, getPaymentMethod, getPaymentMethods
 from .EndPoints.ReservationController import createReservation
-from .EndPoints.ReviewController import getHotelReviews
+from .EndPoints.ReviewController import getHotelReviews, getLatestReviews
 
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -29,6 +29,7 @@ urlpatterns = [
     path("hotels/<int:hotel_id>/NearestTrainStation/", getHotelNearestTrainStation),
     path("hotels/<int:hotel_id>/NearestAirport/", getHotelNearestAirport),
     path("hotels/<int:hotel_id>/reviews/", getHotelReviews),
+    path("reviews/", getLatestReviews),
     path('hotels/<int:hotel_id>/CityCenter/', getHotelCityCenter,),
     path('hotels/<int:hotel_id>/card-data/', getHotelCardData,),
     path('hotels/card-data-batch/', getHotelCardDataBatch,),

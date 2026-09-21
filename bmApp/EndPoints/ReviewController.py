@@ -16,3 +16,31 @@ def getHotelReviews(request, hotel_id):
 		'count': reviews.count(),
 		'results': ReviewSerializer(reviews, many=True).data,
 	}, status=200)
+
+@api_view(['GET'])
+def getLatestReviews(request):
+    reviews = ReviewEntity.objects.select_related(
+        'user',
+        'hotel',
+    ).order_by('-createdAt')[:3]
+
+    return Response({
+        'results': [
+            {
+                'id': review.id,
+                'review': review.review,
+                'createdAt': review.createdAt,
+                'rating': review.rating,
+                'user': {
+                    'id': review.user.id,
+                    'name': review.user.name,
+                    'photo': review.user.photo,
+                },
+                'hotel': {
+                    'id': review.hotel.id,
+                    'name': review.hotel.name,
+                },
+            }
+            for review in reviews
+        ]
+    }, status=200)
