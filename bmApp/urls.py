@@ -4,8 +4,8 @@ from .EndPoints.CityController import *
 from .EndPoints.UserController import *
 from .EndPoints.HotelController import *
 from .EndPoints.RoomController import *
-from .EndPoints.PaymentMethodController import createPaymentMethod, getPaymentMethod, getPaymentMethods
-from .EndPoints.ReservationController import createReservation
+from .EndPoints.PaymentMethodController import createPaymentMethod, getPaymentMethod, getPaymentMethods, getMyPaymentMethods, getDebitCards
+from .EndPoints.ReservationController import createReservation, getReservation
 from .EndPoints.ReviewController import getHotelReviews, getLatestReviews
 
 from rest_framework_simplejwt.views import TokenRefreshView
@@ -19,6 +19,7 @@ urlpatterns = [
     path("user/me/", getCurrentUser),
     path("user/profile-status/", getProfileStatus),
     path("user/google/login/", googleLogin),
+    path("user/payment-methods/", getMyPaymentMethods),
     path("user/<int:user_id>/profile", updateUserProfile),
     path("hotels/advancedFilter/", AdvencedSearch),
     path("hotels/post/<int:hotel_id>/photos/", uploadHotelPhotos),
@@ -36,10 +37,12 @@ urlpatterns = [
     path('hotels/filter-counts/', getFilterCounts,),
     path("rooms/post/<int:room_id>/photos/", uploadRoomPhotos),
     path("rooms/get/<int:room_id>/photos/", getRoomPhotos),
+    path("rooms/<int:room_id>/availability/", getRoomAvailability),
     path("rooms/create/", createRoom),
     path("payment-methods/create/", createPaymentMethod),
     path("payment-methods/", getPaymentMethods),
     path("payment-methods/<int:payment_method_id>/", getPaymentMethod),
+    path("debit-cards/", getDebitCards),
     path('cities/', getCities),
     path('countries/', getCountries),
     path('cities/create/', createCity),
@@ -47,4 +50,5 @@ urlpatterns = [
     path('cities/<int:city_id>/update/', updateCity),
     path('cities/<int:city_id>/delete/', deleteCity),
     path('reservation/create/', createReservation),
+    path('reservation/<int:reservation_id>/', getReservation),
 ]

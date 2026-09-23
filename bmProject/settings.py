@@ -184,6 +184,7 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
     'USER_ID_FIELD': 'id',
     'USER_ID_CLAIM': 'user_id',
+    'TOKEN_REFRESH_SERIALIZER': 'bmApp.authentication.UserEntityTokenRefreshSerializer',
 }
 
 CORS_ALLOWED_ORIGINS = [

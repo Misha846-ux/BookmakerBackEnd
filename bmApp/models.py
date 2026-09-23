@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 
 class CountryEntity(models.Model):
@@ -32,8 +34,9 @@ class HotelEntity(models.Model):
 
 class PaymentMethodEntity(models.Model):
     cardType = models.ForeignKey(DebitCardEntity, on_delete=models.CASCADE)
-    cardNumber = models.CharField(max_length=10, unique=True)
+    cardNumber = models.CharField(max_length=19, unique=True)
     date = models.DateField()
+    user = models.ForeignKey('UserEntity', on_delete=models.SET_NULL, blank=True, null=True)
 
 class RoomEntity(models.Model):
     roomNumber = models.CharField(max_length=200)
@@ -74,14 +77,19 @@ class ReservationEntity(models.Model):
     checkOut = models.DateField()
     name = models.CharField(max_length=200)
     sureName = models.CharField(max_length=200)
-    email = models.CharField(max_length=200, unique=True)
+    email = models.CharField(max_length=200, db_index=True)
     password = models.CharField(max_length=200, blank=True)
-    phoneNumber = models.CharField(max_length=200, unique=True)
+    phoneNumber = models.CharField(max_length=200)
     cityGuide = models.BooleanField(default=False)
+    allowChangeBooking = models.BooleanField(default=False)
+    confirmByCall = models.BooleanField(default=False)
+    confirmByEmail = models.BooleanField(default=False)
+    totalPrice = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     room = models.ForeignKey(RoomEntity, on_delete=models.CASCADE)
     user = models.ForeignKey(UserEntity, on_delete=models.SET_NULL, blank=True, null=True)
     country = models.ForeignKey(CountryEntity, on_delete=models.SET_NULL, null=True)
     payMethod = models.ForeignKey(PaymentMethodEntity, on_delete=models.SET_NULL, null=True)
+    viewToken = models.UUIDField(default=uuid.uuid4, editable=False)
 
 class ReviewEntity(models.Model):
     review = models.TextField()

@@ -4,6 +4,7 @@ from datetime import datetime
 from dataclasses import dataclass 
 from requests.exceptions import RequestException
 from .functions.HotelFunctions import *
+from django.utils import timezone
 from rest_framework import serializers # type: ignore
 # ignore сделан для того чтобы Pylance не ругался, особой роли он не играет и это не является ошибкой.
 
@@ -136,6 +137,22 @@ class DebitCardSerializer(serializers.ModelSerializer):
 
 class PaymentMethodSerializer(serializers.ModelSerializer):
     cardType = serializers.PrimaryKeyRelatedField(queryset=DebitCardEntity.objects.all())
+    cardNumber = serializers.CharField(validators=[])
+
+    def validate_cardNumber(self, value):
+        digits = ''.join(ch for ch in value if ch.isdigit())
+        cleaned = value.replace(' ', '').replace('-', '')
+        if not cleaned.isdigit():
+            raise serializers.ValidationError('Card number must contain only digits.')
+        if len(digits) < 13 or len(digits) > 19:
+            raise serializers.ValidationError('Card number must have between 13 and 19 digits.')
+        return cleaned
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        digits = ''.join(ch for ch in str(data.get('cardNumber') or '') if ch.isdigit())
+        data['cardNumber'] = f'**** **** **** {digits[-4:]}' if len(digits) >= 4 else '****'
+        return data
 
     class Meta:
         model = PaymentMethodEntity
@@ -326,10 +343,11 @@ class UserProfileUpdateSerializer(serializers.Serializer):
 class ReservationSerializer(serializers.ModelSerializer):
     email = serializers.EmailField()
     room = serializers.PrimaryKeyRelatedField(queryset=RoomEntity.objects.all())
-    user = serializers.PrimaryKeyRelatedField(queryset=UserEntity.objects.all(), allow_null=True, required=False)
-    country = serializers.PrimaryKeyRelatedField(queryset=CountryEntity.objects.all(), allow_null=True)
-    payMethod = serializers.PrimaryKeyRelatedField(queryset=PaymentMethodEntity.objects.all(), allow_null=True)
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    country = serializers.PrimaryKeyRelatedField(queryset=CountryEntity.objects.all(), allow_null=True, required=False)
+    payMethod = serializers.PrimaryKeyRelatedField(queryset=PaymentMethodEntity.objects.all(), allow_null=True, required=False)
     password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    totalPrice = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = ReservationEntity
@@ -343,10 +361,15 @@ class ReservationSerializer(serializers.ModelSerializer):
             'password',
             'phoneNumber',
             'cityGuide',
+            'allowChangeBooking',
+            'confirmByCall',
+            'confirmByEmail',
+            'totalPrice',
             'room',
             'user',
             'country',
-            'payMethod'
+            'payMethod',
+            'viewToken',
         ]
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
@@ -355,7 +378,14 @@ class ReservationSerializer(serializers.ModelSerializer):
         if check_in and check_out:
             if check_out <= check_in:
                 raise serializers.ValidationError({'checkOut': 'Check-out date must be later than check-in date.'})
+        if check_in:
+            if check_in < timezone.localdate():
+                raise serializers.ValidationError({'checkIn': 'Check-in date cannot be in the past.'})
         return attrs
+
+    def create(self, validated_data: Dict[str, Any]) -> ReservationEntity:
+        validated_data.pop('password', None)
+        return ReservationEntity.objects.create(**validated_data)
 
 @dataclass
 class AuthAccountDTO():

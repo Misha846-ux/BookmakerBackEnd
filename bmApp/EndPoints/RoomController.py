@@ -64,25 +64,59 @@ def getRoomPhotos(request, room_id):
         room = RoomEntity.objects.get(id=room_id)
     except RoomEntity.DoesNotExist:
         return Response({'error': 'Room not found'}, status=404)
-    
+
     if not room.photo:
         return Response({'photos': []}, status=200)
-    
+
     photo_dir_path = os.path.join(settings.MEDIA_ROOT, room.photo)
-    
+
     if not os.path.exists(photo_dir_path):
         return Response({'photos': []}, status=200)
-    
+
     photos = []
     try:
         for filename in os.listdir(photo_dir_path):
             file_path = os.path.join(photo_dir_path, filename)
             if os.path.isfile(file_path):
-                photo_url = request.build_absolute_uri(
+                photos.append({'photo': request.build_absolute_uri(
                     f'{settings.MEDIA_URL}{room.photo}{filename}'
-                )
-                photos.append({'photo': photo_url})
+                )})
     except Exception as e:
         return Response({'error': f'Error reading photos: {str(e)}'}, status=500)
-    
+
     return Response({'photos': photos}, status=200)
+
+
+@api_view(['PUT'])
+def getRoomAvailability(request, room_id):
+    try:
+        room = RoomEntity.objects.get(id=room_id)
+    except RoomEntity.DoesNotExist:
+        return Response({'error': 'Room not found'}, status=404)
+
+    dto = AdvancedSearchDTO(data=request.data)
+    dto.is_valid(raise_exception=True)
+    data = dto.validated_data
+
+    check_in = data.get("checkIn")
+    check_out = data.get("checkOut")
+    available = True
+
+    if check_in and check_out:
+        check_in_date = check_in.date()
+        check_out_date = check_out.date()
+        if check_out_date <= check_in_date:
+            return Response(
+                {'error': 'Check-out date must be later than check-in date.'},
+                status=400,
+            )
+        available = not ReservationEntity.objects.filter(
+            room=room,
+            checkIn__lt=check_out_date,
+            checkOut__gt=check_in_date,
+        ).exists()
+
+    return Response({
+        'available': available,
+        'room': RoomSerializer(room).data,
+    }, status=200)
