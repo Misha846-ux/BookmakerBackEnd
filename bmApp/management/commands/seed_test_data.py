@@ -4,7 +4,7 @@ import requests
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from bmApp.models import CountryEntity, HotelEntity
+from bmApp.models import CountryEntity, DebitCardEntity, HotelEntity
 
 
 COUNTRIES_AND_CITIES = {
@@ -51,6 +51,22 @@ HOTELS = [
 ]
 
 ROOM_PHOTOS = ("Room1.jpg", "Room2.jpg", "Room3.png")
+ROOM_PHOTO_SETS = (
+    ("Room1.jpg", "Room1.jpg", "Room2.jpg"),
+    ("Room1.jpg", "Room2.jpg", "Room3.png"),
+    ("Room2.jpg", "Room2.jpg", "Room3.png"),
+    ("Room2.jpg", "Room3.png", "Room1.jpg"),
+    ("Room3.png", "Room3.png", "Room1.jpg"),
+    ("Room3.png", "Room1.jpg", "Room2.jpg"),
+)
+
+DEBIT_CARD_TYPES = (
+    "Visa",
+    "Mastercard",
+    "Maestro",
+    "American Express",
+    "Discover",
+)
 
 
 class Command(BaseCommand):
@@ -81,6 +97,7 @@ class Command(BaseCommand):
         self.session = requests.Session()
 
         try:
+            self._load_debit_card_types()
             cities = self._load_countries_and_cities()
             hotels = self._load_hotels_and_rooms(source_directory, cities)
         except requests.RequestException as error:
@@ -103,6 +120,13 @@ class Command(BaseCommand):
             ))
         else:
             self.stdout.write("Manual database fallbacks: none.")
+
+    def _load_debit_card_types(self):
+        for card_name in DEBIT_CARD_TYPES:
+            DebitCardEntity.objects.get_or_create(name=card_name)
+        self.manual_fallbacks.append(
+            "debit card types (no debit card creation API endpoint exists)"
+        )
 
     def _load_countries_and_cities(self):
         countries = {}
@@ -181,13 +205,23 @@ class Command(BaseCommand):
                             "hotel": hotel["id"],
                         },
                     ).json()
-                source_name = ROOM_PHOTOS[(hotel_number + room_number - 2) % len(ROOM_PHOTOS)]
-                self._upload_file(
-                    f"/rooms/post/{room['id']}/photos/",
-                    source_directory / "Rooms" / source_name,
-                )
+                self._clear_room_photos(room["id"])
+                photo_set_index = (hotel_number * 2 + room_number - 3) % len(ROOM_PHOTO_SETS)
+                for source_name in ROOM_PHOTO_SETS[photo_set_index]:
+                    self._upload_file(
+                        f"/rooms/post/{room['id']}/photos/",
+                        source_directory / "Rooms" / source_name,
+                    )
             loaded_hotels.append(hotel)
         return loaded_hotels
+
+    def _clear_room_photos(self, room_id):
+        photo_directory = Path(settings.MEDIA_ROOT) / "rooms" / str(room_id)
+        if not photo_directory.is_dir():
+            return
+        for photo_path in photo_directory.iterdir():
+            if photo_path.is_file():
+                photo_path.unlink()
 
     def _ensure_distance_values(self, hotel, email):
         missing_fields = [
