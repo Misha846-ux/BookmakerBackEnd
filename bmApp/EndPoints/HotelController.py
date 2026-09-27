@@ -20,11 +20,15 @@ def _ensure_hotel_coordinates(hotel):
     if hotel.latitude is not None and hotel.longitude is not None:
         return True
 
-    coordinates = get_coordinates(
-        address=hotel.address,
-        city=hotel.city.name,
-        country=hotel.city.country.name,
-    )
+    try:
+        coordinates = get_coordinates(
+            address=hotel.address,
+            city=hotel.city.name,
+            country=hotel.city.country.name,
+        )
+    except requests.RequestException:
+        return False
+
     if coordinates is None:
         return False
 
@@ -39,8 +43,8 @@ def createHotel(request):
 
     if serializer.is_valid():
         hotel = serializer.save()
-        hotel.nearest_airport_distance = 10000
-        hotel.nearest_train_distance = 10000
+        hotel.nearest_airport_distance = None
+        hotel.nearest_train_distance = None
 
         if hotel.latitude is not None and hotel.longitude is not None:
             try:
@@ -186,7 +190,7 @@ def AdvencedSearch(request):
             average_rate__gte=data["rate"])
 
     if data.get("stars"):
-        hotels = hotels.filter(stars__gte=data["stars"])
+        hotels = hotels.filter(stars=data["stars"])
 
     if data.get("wifi"):
         hotels = hotels.filter(roomentity__wifi=data["wifi"])

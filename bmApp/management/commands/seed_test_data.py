@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from bmApp.models import CountryEntity, DebitCardEntity, HotelEntity
+from bmApp.functions.HotelFunctions import get_coordinates, get_nearest_place
 
 
 COUNTRIES_AND_CITIES = {
@@ -84,6 +85,14 @@ class Command(BaseCommand):
             default=120,
             help="HTTP request timeout in seconds.",
         )
+        parser.add_argument(
+            "--recalc-distances",
+            action="store_true",
+            help=(
+                "Re-query Geoapify for every seeded hotel and overwrite "
+                "nearest_airport_distance / nearest_train_distance."
+            ),
+        )
 
     def handle(self, *args, **options):
         source_directory = Path(settings.BASE_DIR) / "PicturesForTests"
@@ -105,14 +114,21 @@ class Command(BaseCommand):
                 f"Could not connect to {self.base_url}. Start the Django server first. {error}"
             ) from error
 
+        if options["recalc_distances"]:
+            self._recalculate_distances()
+
         self.stdout.write(self.style.SUCCESS(
             f"Loaded {len(cities)} cities and {len(hotels)} hotels through the API."
         ))
         if self.distance_fallbacks:
             self.stdout.write(self.style.WARNING(
-                "Distance fallback 10000 was used for: "
+                "Geoapify returned no distances, fallback 10000 was used for: "
                 + ", ".join(self.distance_fallbacks)
             ))
+        else:
+            self.stdout.write(
+                "Geoapify distances: all hotels got real values from the API."
+            )
         if self.manual_fallbacks:
             self.stdout.write(self.style.WARNING(
                 "Manual database fallbacks were used: "
@@ -181,6 +197,11 @@ class Command(BaseCommand):
                     },
                 ).json()
             self._ensure_distance_values(hotel, hotel_data["email"])
+            self.stdout.write(
+                f"  {hotel_data['name']}: "
+                f"airport={self._format_distance(hotel.get('nearest_airport_distance'))}, "
+                f"train={self._format_distance(hotel.get('nearest_train_distance'))}"
+            )
             self._upload_file(
                 f"/hotels/post/{hotel['id']}/photos/",
                 source_directory / "Hotels" / hotel_data["source_photo"],
@@ -231,16 +252,84 @@ class Command(BaseCommand):
             ) if hotel.get(field) is None
         ]
         if not missing_fields:
-            return
+            return hotel
 
         database_hotel = HotelEntity.objects.get(pk=hotel["id"])
         for field in missing_fields:
             setattr(database_hotel, field, 10000)
+            hotel[field] = 10000
         database_hotel.save(update_fields=missing_fields)
         self.distance_fallbacks.append(email)
         self.manual_fallbacks.append(
             f"{email} distance fields (no hotel update API endpoint exists)"
         )
+        return hotel
+
+    @staticmethod
+    def _format_distance(distance):
+        if distance is None:
+            return "n/a"
+        if distance >= 1000:
+            return f"{distance / 1000:.1f} km ({distance} m)"
+        return f"{distance} m"
+
+    def _recalculate_distances(self):
+        self.stdout.write("Recalculating distances through Geoapify...")
+
+        hotels = HotelEntity.objects.select_related("city", "city__country").order_by("id")
+
+        for hotel in hotels:
+            label = f"{hotel.name} <{hotel.email or hotel.id}>"
+            try:
+                if hotel.latitude is None or hotel.longitude is None:
+                    coordinates = get_coordinates(
+                        hotel.address,
+                        hotel.city.name,
+                        hotel.city.country.name,
+                    )
+                    if coordinates is None:
+                        raise requests.RequestException(
+                            "geocoding returned no coordinates"
+                        )
+                    hotel.latitude, hotel.longitude = coordinates
+                    hotel.save(update_fields=["latitude", "longitude"])
+
+                airport = get_nearest_place(
+                    float(hotel.latitude),
+                    float(hotel.longitude),
+                    "airport",
+                )
+                train_station = get_nearest_place(
+                    float(hotel.latitude),
+                    float(hotel.longitude),
+                    "train_station",
+                )
+            except requests.RequestException as error:
+                self.stdout.write(self.style.WARNING(
+                    f"  {label}: Geoapify recalc failed: {error}"
+                ))
+                continue
+
+            hotel.nearest_airport_distance = (
+                airport["distance"] if airport else None
+            )
+            hotel.nearest_train_distance = (
+                train_station["distance"] if train_station else None
+            )
+            hotel.save(
+                update_fields=[
+                    "nearest_airport_distance",
+                    "nearest_train_distance",
+                ]
+            )
+            self.stdout.write(
+                f"  {label}: "
+                f"({hotel.latitude}, {hotel.longitude}) "
+                f"airport={self._format_distance(hotel.nearest_airport_distance)}"
+                f" [{airport['name'] if airport else 'not found'}], "
+                f"train={self._format_distance(hotel.nearest_train_distance)}"
+                f" [{train_station['name'] if train_station else 'not found'}]"
+            )
 
     def _get_existing_hotels(self):
         response = self._request("PUT", "/hotels/get/?el=100&page=1", json={})

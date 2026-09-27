@@ -96,11 +96,14 @@ class CitySerializer(serializers.ModelSerializer):
 
         if (center and (center != instance.center or name != instance.name
                 or country != instance.country)):
-            coordinates = get_coordinates(
-                address=center,
-                city=name,
-                country=country.name,
-            )
+            try:
+                coordinates = get_coordinates(
+                    address=center,
+                    city=name,
+                    country=country.name,
+                )
+            except (RequestException, KeyError, ValueError):
+                coordinates = None
 
             if coordinates is None:
                 raise serializers.ValidationError({

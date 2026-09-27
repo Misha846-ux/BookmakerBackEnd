@@ -6,38 +6,80 @@ from django.conf import settings
 
 
 PLACE_TYPES = {
-    'airport': 'aeroway="aerodrome"',
-    'train_station': 'railway="station"',
-    'bus_stop': 'highway="bus_stop"',
-    'subway_station': 'railway="subway_entrance"',
-    'ferry_terminal': 'amenity="ferry_terminal"',
+    'airport': 'airport',
+    'train_station': 'public_transport.train',
+    'bus_stop': 'public_transport.bus',
+    'subway_station': 'public_transport.subway',
+    'ferry_terminal': 'public_transport.ferry',
 }
+
+PLACES_LIMIT = 10
+
+
+def _geoapify_request(url: str, params: dict,) -> dict:
+
+    if not settings.GEOAPIFY_API_KEY:
+        raise requests.RequestException('GEOAPIFY_API_KEY is not configured.')
+
+    try:
+        response = requests.get(
+            url,
+            params={
+                **params,
+                'apiKey': settings.GEOAPIFY_API_KEY,
+            },
+            headers={
+                'User-Agent': settings.MAP_USER_AGENT,
+            },
+            timeout=settings.MAP_API_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except requests.RequestException:
+        raise
+    except ValueError as error:
+        raise requests.RequestException(
+            'Geoapify returned a response that is not valid JSON.',
+        ) from error
+
+    if not isinstance(data, dict):
+        raise requests.RequestException(
+            'Geoapify returned an unexpected response payload.',
+        )
+
+    return data
 
 
 def get_coordinates(address: str, city: str, country: str,) -> Optional[tuple[float, float]]:
     query = f'{address}, {city}, {country}'
 
-    response = requests.get(
-        settings.NOMINATIM_URL,
-        params={
-            'q': query,
+    data = _geoapify_request(
+        settings.GEOAPIFY_GEOCODE_URL,
+        {
+            'text': query,
             'format': 'json',
             'limit': 1,
         },
-        headers={
-            'User-Agent': settings.NOMINATIM_USER_AGENT,
-        },
-        timeout=settings.MAP_API_TIMEOUT,
     )
 
-    response.raise_for_status()
+    results = data.get('results')
 
-    data = response.json()
+    if not isinstance(results, list):
+        raise requests.RequestException(
+            'Geoapify geocoding response has no results list.',
+        )
 
-    if not data:
+    if not results:
         return None
 
-    return (float(data[0]['lat']),float(data[0]['lon']),)
+    result = results[0]
+
+    try:
+        return (float(result['lat']), float(result['lon']),)
+    except (KeyError, TypeError, ValueError) as error:
+        raise requests.RequestException(
+            'Geoapify geocoding result has no valid coordinates.',
+        ) from error
 
 
 def calculate_distance(latitude1: float, longitude1: float,
@@ -73,70 +115,60 @@ def get_nearest_place(latitude: float, longitude: float, place_type: str,) -> Op
             f'Available types: {", ".join(PLACE_TYPES.keys())}'
         )
 
-    osm_filter = PLACE_TYPES[place_type]
+    category = PLACE_TYPES[place_type]
 
     search_radius = min(settings.AIRPORT_SEARCH_RADIUS, 30_000)
-    query = f'''
-    [out:json][timeout:25];
 
-    (
-        node[{osm_filter}]
-            (around:{search_radius},{latitude},{longitude});
+    data = _geoapify_request(
+        settings.GEOAPIFY_PLACES_URL,
+        {
+            'categories': category,
+            'filter': f'circle:{longitude},{latitude},{search_radius}',
+            'bias': f'proximity:{longitude},{latitude}',
+            'limit': PLACES_LIMIT,
+        },
+    )
 
-        way[{osm_filter}]
-            (around:{search_radius},{latitude},{longitude});
+    features = data.get('features')
 
-        relation[{osm_filter}]
-            (around:{search_radius},{latitude},{longitude});
-    );
-
-    out center;
-    '''
-
-    endpoints = [
-        settings.OVERPASS_URL,
-        *getattr(settings, 'OVERPASS_FALLBACK_URLS', []),
-    ]
-    last_error = None
-    for endpoint in dict.fromkeys(url for url in endpoints if url):
-        try:
-            response = requests.post(
-                endpoint,
-                data=query,
-                headers={
-                    'Accept': 'application/json',
-                    'User-Agent': settings.NOMINATIM_USER_AGENT,
-                },
-                timeout=settings.MAP_API_TIMEOUT,
-            )
-            response.raise_for_status()
-            break
-        except requests.RequestException as error:
-            last_error = error
-    else:
-        raise last_error
-
-    data = response.json()
-
-    if not data.get('elements'):
-        return None
+    if not isinstance(features, list):
+        raise requests.RequestException(
+            'Geoapify places response has no features list.',
+        )
 
     nearest_place = None
     nearest_distance = None
 
-    for place in data['elements']:
+    for feature in features:
 
-        if place['type'] == 'node':
-            place_latitude = place['lat']
-            place_longitude = place['lon']
-        else:
-            center = place.get('center')
+        if not isinstance(feature, dict):
+            continue
 
-            if not center:
+        properties = feature.get('properties')
+
+        if not isinstance(properties, dict):
+            properties = {}
+
+        place_latitude = properties.get('lat')
+        place_longitude = properties.get('lon')
+
+        if place_latitude is None or place_longitude is None:
+            geometry = feature.get('geometry')
+            coordinates = geometry.get('coordinates') if isinstance(geometry, dict) else None
+
+            if not coordinates:
                 continue
 
-            place_latitude = center['lat']
-            place_longitude = center['lon']
+            try:
+                place_longitude, place_latitude = coordinates
+            except (TypeError, ValueError):
+                continue
+
+        try:
+            place_latitude = float(place_latitude)
+            place_longitude = float(place_longitude)
+        except (TypeError, ValueError):
+            continue
 
         distance = calculate_distance(
             latitude,
@@ -152,7 +184,7 @@ def get_nearest_place(latitude: float, longitude: float, place_type: str,) -> Op
                 'latitude': place_latitude,
                 'longitude': place_longitude,
                 'distance': distance,
-                'name': place.get('tags', {}).get('name'),
+                'name': properties.get('name'),
             }
 
     return nearest_place
@@ -174,26 +206,31 @@ def get_nearest_place_distance(latitude: float, longitude: float, place_type: st
 
 def get_address_by_coordinates(latitude: float, longitude: float) -> Optional[str]:
 
-    response = requests.get(
-        settings.NOMINATIM_URL.replace('/search', '/reverse'),
-        params={
+    data = _geoapify_request(
+        settings.GEOAPIFY_REVERSE_URL,
+        {
             'lat': latitude,
             'lon': longitude,
             'format': 'json',
-            'zoom': 18,
         },
-        headers={
-            'User-Agent': settings.NOMINATIM_USER_AGENT,
-        },
-        timeout=settings.MAP_API_TIMEOUT,
     )
 
-    response.raise_for_status()
+    results = data.get('results')
 
-    data = response.json()
+    if not isinstance(results, list):
+        raise requests.RequestException(
+            'Geoapify reverse geocoding response has no results list.',
+        )
 
-    if not data:
+    if not results:
         return None
 
-    return data.get('display_name')
+    result = results[0]
+
+    if not isinstance(result, dict):
+        raise requests.RequestException(
+            'Geoapify reverse geocoding result has no address.',
+        )
+
+    return result.get('formatted')
 

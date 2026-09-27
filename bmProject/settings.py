@@ -154,14 +154,12 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
-NOMINATIM_URL = os.getenv('NOMINATIM_URL')
-OVERPASS_URL = os.getenv('OVERPASS_URL')
-OVERPASS_FALLBACK_URLS = [
-    'https://overpass.kumi.systems/api/interpreter',
-    'https://overpass.private.coffee/api/interpreter',
-]
+GEOAPIFY_API_KEY = os.getenv('GEOAPIFY_API_KEY')
+GEOAPIFY_PLACES_URL = 'https://api.geoapify.com/v2/places'
+GEOAPIFY_GEOCODE_URL = 'https://api.geoapify.com/v1/geocode/search'
+GEOAPIFY_REVERSE_URL = 'https://api.geoapify.com/v1/geocode/reverse'
 AIRPORT_SEARCH_RADIUS = int(os.getenv('AIRPORT_SEARCH_RADIUS'))
-NOMINATIM_USER_AGENT = os.getenv('NOMINATIM_USER_AGENT')
+MAP_USER_AGENT = os.getenv('MAP_USER_AGENT', 'hotel-booking-app/1.0')
 MAP_API_TIMEOUT = int(os.getenv('MAP_API_TIMEOUT'))
 
 
