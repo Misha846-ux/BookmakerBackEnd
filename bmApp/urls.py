@@ -21,6 +21,8 @@ urlpatterns = [
     path("user/google/login/", googleLogin),
     path("user/payment-methods/", getMyPaymentMethods),
     path("user/<int:user_id>/profile", updateUserProfile),
+    path("user/<int:user_id>/photo/", uploadUserPhoto),
+    path("user/<int:user_id>/photo/delete/", deleteUserPhoto),
     path("hotels/advancedFilter/", AdvencedSearch),
     path("hotels/post/<int:hotel_id>/photos/", uploadHotelPhotos),
     path("hotels/get/<int:hotel_id>/photos/", getHotelPhotos),

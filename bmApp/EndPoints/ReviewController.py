@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from ..models import HotelEntity, ReviewEntity
+from ..functions.UserFunctions import user_photo_url
 from ..serializers import ReviewSerializer
 
 
@@ -34,7 +35,7 @@ def getLatestReviews(request):
                 'user': {
                     'id': review.user.id,
                     'name': review.user.name,
-                    'photo': review.user.photo,
+                    'photo': user_photo_url(request, review.user.photo),
                 },
                 'hotel': {
                     'id': review.hotel.id,

@@ -3,9 +3,12 @@ import shutil
 import tempfile
 
 from django.conf import settings
-from django.test import TestCase
+from django.contrib.auth.hashers import make_password
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
+from rest_framework.test import APIClient
 
-from .models import CityEntity, CountryEntity, HotelEntity, RoomEntity
+from .models import CityEntity, CountryEntity, HotelEntity, RoomEntity, UserEntity
 
 
 COUNTRIES_AND_CITIES = {
@@ -163,3 +166,123 @@ class BookingDataTest(TestCase):
 			self.assertEqual(hotel.roomentity_set.count(), 2)
 			for room in hotel.roomentity_set.all():
 				self.assertTrue(Path(room.photo).is_file())
+
+
+class UserPhotoTest(TestCase):
+	def setUp(self):
+		self.media_directory = Path(tempfile.mkdtemp())
+		self.addCleanup(shutil.rmtree, self.media_directory, ignore_errors=True)
+
+		self.media_override = override_settings(MEDIA_ROOT=self.media_directory)
+		self.media_override.enable()
+		self.addCleanup(self.media_override.disable)
+
+		self.user = self._create_user("avatar-owner@test-bookmaker.example")
+		self.other_user = self._create_user("avatar-other@test-bookmaker.example")
+
+		self.client = APIClient()
+		self.client.force_authenticate(user=self.user)
+
+	def _create_user(self, email):
+		return UserEntity.objects.create(
+			name="Avatar Owner",
+			email=email,
+			hashPassword=make_password("strong-password"),
+			created=True,
+		)
+
+	def _upload(self, name="avatar.png", content_type="image/png"):
+		return self.client.post(
+			f"/user/{self.user.id}/photo/",
+			{
+				"file": SimpleUploadedFile(
+					name,
+					b"\x89PNG\r\n\x1a\n",
+					content_type=content_type,
+				)
+			},
+			format="multipart",
+		)
+
+	def _stored_photos(self):
+		photo_directory = self.media_directory / "users" / str(self.user.id)
+		if not photo_directory.exists():
+			return []
+		return [entry for entry in photo_directory.iterdir() if entry.is_file()]
+
+	def test_upload_stores_avatar_and_returns_url(self):
+		response = self._upload()
+
+		self.assertEqual(response.status_code, 201)
+		self.user.refresh_from_db()
+		self.assertTrue(self.user.photo.startswith(f"users/{self.user.id}/"))
+		self.assertEqual(len(self._stored_photos()), 1)
+		self.assertEqual(response.json()["message"], "Photo uploaded successfully")
+		self.assertTrue(response.json()["photo_url"].endswith(f"/media/{self.user.photo}"))
+
+	def test_upload_replaces_previous_avatar(self):
+		self._upload()
+		self.user.refresh_from_db()
+		previous_photo = self.user.photo
+
+		response = self._upload(name="replacement.jpg", content_type="image/jpeg")
+
+		self.assertEqual(response.status_code, 201)
+		self.user.refresh_from_db()
+		self.assertNotEqual(self.user.photo, previous_photo)
+		self.assertFalse((self.media_directory / previous_photo).exists())
+		self.assertEqual(len(self._stored_photos()), 1)
+
+	def test_delete_removes_avatar(self):
+		self._upload()
+		self.user.refresh_from_db()
+		photo_path = self.media_directory / self.user.photo
+
+		response = self.client.delete(f"/user/{self.user.id}/photo/delete/")
+
+		self.assertEqual(response.status_code, 200)
+		self.user.refresh_from_db()
+		self.assertIsNone(self.user.photo)
+		self.assertFalse(photo_path.exists())
+		self.assertEqual(self._stored_photos(), [])
+
+	def test_delete_without_avatar_returns_not_found(self):
+		response = self.client.delete(f"/user/{self.user.id}/photo/delete/")
+
+		self.assertEqual(response.status_code, 404)
+
+	def test_upload_rejects_non_image_file(self):
+		response = self._upload(name="avatar.txt", content_type="text/plain")
+
+		self.assertEqual(response.status_code, 400)
+
+	def test_upload_rejects_missing_file(self):
+		response = self.client.post(f"/user/{self.user.id}/photo/", {}, format="multipart")
+
+		self.assertEqual(response.status_code, 400)
+
+	def test_upload_is_forbidden_for_another_user(self):
+		self.client.force_authenticate(user=self.other_user)
+
+		response = self._upload()
+
+		self.assertEqual(response.status_code, 403)
+
+	def test_upload_requires_authentication(self):
+		self.client.force_authenticate(user=None)
+
+		response = self._upload()
+
+		self.assertEqual(response.status_code, 401)
+
+	def test_current_user_returns_absolute_photo_url(self):
+		self._upload()
+		self.user.refresh_from_db()
+
+		response = self.client.get("/user/me/")
+
+		self.assertEqual(response.status_code, 200)
+		self.assertTrue(
+			response.json()["photo"].startswith("http://testserver/media/users/")
+		)
+

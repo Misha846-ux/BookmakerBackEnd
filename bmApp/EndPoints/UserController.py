@@ -7,9 +7,12 @@ from django.contrib.auth.hashers import make_password, check_password
 from ..models import UserEntity
 from datetime import timedelta
 from django.utils import timezone
-from ..functions.UserFunctions import send_auth_code
+from django.conf import settings
+from ..functions.UserFunctions import send_auth_code, user_photo_url, remove_user_photo_file
 from ..serializers import UserProfileUpdateSerializer
 import json
+import os
+import uuid
 import requests as http_requests
 
 
@@ -154,7 +157,7 @@ def getCurrentUser(request):
         "email": user.email,
         "phone": user.phone,
         "birthday": user.birthday,
-        "photo": user.photo,
+        "photo": user_photo_url(request, user.photo),
         "ampthill": user.ampthill,
         "city": user.city.id if user.city else None,
         "currency": user.currency.id if user.currency else None,
@@ -271,3 +274,74 @@ def updateUserProfile(request, user_id):
     }
 
     return JsonResponse(response_data, status=200)
+
+
+def _get_own_user(request, user_id):
+    if request.user.id != user_id:
+        return None, JsonResponse({"error": "Forbidden."}, status=403)
+
+    try:
+        return UserEntity.objects.get(id=user_id), None
+    except UserEntity.DoesNotExist:
+        return None, JsonResponse({"error": "User not found."}, status=404)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def uploadUserPhoto(request, user_id):
+    user, error = _get_own_user(request, user_id)
+
+    if error:
+        return error
+
+    if 'file' not in request.FILES:
+        return JsonResponse({"error": "No file provided."}, status=400)
+
+    file = request.FILES['file']
+
+    if not file.content_type.startswith('image/'):
+        return JsonResponse({"error": "Only image files are allowed."}, status=400)
+
+    photo_dir = f'users/{user_id}/'
+    photo_dir_path = os.path.join(settings.MEDIA_ROOT, photo_dir)
+
+    os.makedirs(photo_dir_path, exist_ok=True)
+
+    file_name, file_ext = os.path.splitext(os.path.basename(file.name))
+    unique_filename = f'{file_name[:50]}_{uuid.uuid4().hex[:8]}{file_ext[:10]}'
+
+    file_path = os.path.join(photo_dir_path, unique_filename)
+    with open(file_path, 'wb+') as destination:
+        for chunk in file.chunks():
+            destination.write(chunk)
+
+    previous_photo = user.photo
+    user.photo = f'{photo_dir}{unique_filename}'
+    user.save(update_fields=['photo'])
+
+    if previous_photo and previous_photo != user.photo:
+        remove_user_photo_file(previous_photo)
+
+    return JsonResponse({
+        "message": "Photo uploaded successfully",
+        "photo_url": user_photo_url(request, user.photo),
+    }, status=201)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def deleteUserPhoto(request, user_id):
+    user, error = _get_own_user(request, user_id)
+
+    if error:
+        return error
+
+    if not user.photo:
+        return JsonResponse({"error": "User has no photo."}, status=404)
+
+    remove_user_photo_file(user.photo)
+    user.photo = None
+    user.save(update_fields=['photo'])
+
+    return JsonResponse({"message": "Photo deleted successfully"}, status=200)
+
