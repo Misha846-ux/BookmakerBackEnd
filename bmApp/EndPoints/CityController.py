@@ -2,8 +2,15 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 
-from ..models import CityEntity, CountryEntity
-from ..serializers import CitySerializer, CountrySerializer
+from ..models import CityEntity, CountryEntity, CurrencyEntity
+from ..serializers import CitySerializer, CountrySerializer, CurrencySerializer
+
+
+@api_view(['GET'])
+def getCurrencies(request):
+    currencies = CurrencyEntity.objects.all().order_by('id')
+    serializer = CurrencySerializer(currencies, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])

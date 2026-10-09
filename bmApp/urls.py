@@ -4,9 +4,9 @@ from .EndPoints.CityController import *
 from .EndPoints.UserController import *
 from .EndPoints.HotelController import *
 from .EndPoints.RoomController import *
-from .EndPoints.PaymentMethodController import createPaymentMethod, getPaymentMethod, getPaymentMethods, getMyPaymentMethods, getDebitCards
-from .EndPoints.ReservationController import createReservation, getReservation
-from .EndPoints.ReviewController import getHotelReviews, getLatestReviews
+from .EndPoints.PaymentMethodController import createPaymentMethod, getPaymentMethod, getPaymentMethods, getMyPaymentMethods, getDebitCards, updatePaymentMethod, deletePaymentMethod, setDefaultPaymentMethod
+from .EndPoints.ReservationController import createReservation, getReservation, getMyReservations, cancelReservation
+from .EndPoints.ReviewController import getHotelReviews, getLatestReviews, getMyReviews
 
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -20,7 +20,9 @@ urlpatterns = [
     path("user/profile-status/", getProfileStatus),
     path("user/google/login/", googleLogin),
     path("user/payment-methods/", getMyPaymentMethods),
-    path("user/<int:user_id>/profile", updateUserProfile),
+    path("user/reservations/", getMyReservations),
+    path("user/reviews/", getMyReviews),
+    path("user/<int:user_id>/profile", userProfile),
     path("user/<int:user_id>/photo/", uploadUserPhoto),
     path("user/<int:user_id>/photo/delete/", deleteUserPhoto),
     path("hotels/advancedFilter/", AdvencedSearch),
@@ -44,13 +46,18 @@ urlpatterns = [
     path("payment-methods/create/", createPaymentMethod),
     path("payment-methods/", getPaymentMethods),
     path("payment-methods/<int:payment_method_id>/", getPaymentMethod),
+    path("payment-methods/<int:payment_method_id>/update/", updatePaymentMethod),
+    path("payment-methods/<int:payment_method_id>/delete/", deletePaymentMethod),
+    path("payment-methods/<int:payment_method_id>/default/", setDefaultPaymentMethod),
     path("debit-cards/", getDebitCards),
     path('cities/', getCities),
     path('countries/', getCountries),
+    path('currencies/', getCurrencies),
     path('cities/create/', createCity),
     path('cities/<int:city_id>/', getCity),
     path('cities/<int:city_id>/update/', updateCity),
     path('cities/<int:city_id>/delete/', deleteCity),
     path('reservation/create/', createReservation),
+    path('reservation/<int:reservation_id>/cancel/', cancelReservation),
     path('reservation/<int:reservation_id>/', getReservation),
 ]

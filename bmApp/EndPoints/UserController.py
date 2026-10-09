@@ -1,6 +1,6 @@
 from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import IntegrityError
 from django.contrib.auth.hashers import make_password, check_password
@@ -160,6 +160,7 @@ def getCurrentUser(request):
         "photo": user_photo_url(request, user.photo),
         "ampthill": user.ampthill,
         "city": user.city.id if user.city else None,
+        "country": user.city.country_id if user.city and user.city.country else None,
         "currency": user.currency.id if user.currency else None,
         "payMethod": user.payMethod.id if user.payMethod else None,
     })
@@ -221,9 +222,24 @@ def googleLogin(request):
     })
 
 
-@api_view(['PATCH'])
-@permission_classes([IsAuthenticated])
-def updateUserProfile(request, user_id):
+@api_view(['GET', 'PATCH'])
+@permission_classes([AllowAny])
+def userProfile(request, user_id):
+    if request.method == 'GET':
+        try:
+            user = UserEntity.objects.get(id=user_id)
+        except UserEntity.DoesNotExist:
+            return JsonResponse({"error": "User not found."}, status=404)
+
+        return JsonResponse({
+            "id": user.id,
+            "name": user.name,
+            "photo": user_photo_url(request, user.photo),
+        })
+
+    if not request.user or not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+
     if request.user.id != user_id:
         return JsonResponse({"error": "Forbidden."}, status=403)
 
@@ -244,6 +260,8 @@ def updateUserProfile(request, user_id):
 
     validated_data = serializer.validated_data
 
+    if 'name' in validated_data:
+        user.name = validated_data['name']
     if 'email' in validated_data:
         user.email = validated_data['email']
     if 'phone' in validated_data:
@@ -264,13 +282,16 @@ def updateUserProfile(request, user_id):
 
     response_data = {
         "id": user.id,
+        "name": user.name,
         "email": user.email,
         "phone": user.phone,
         "birthday": user.birthday,
+        "photo": user_photo_url(request, user.photo),
         "ampthill": user.ampthill,
         "city": user.city.id if user.city else None,
         "country": user.city.country.id if user.city and user.city.country else None,
         "currency": user.currency.id if user.currency else None,
+        "payMethod": user.payMethod.id if user.payMethod else None,
     }
 
     return JsonResponse(response_data, status=200)

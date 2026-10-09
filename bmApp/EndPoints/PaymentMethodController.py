@@ -113,3 +113,93 @@ def getDebitCards(request):
     serializer = DebitCardSerializer(cards, many=True)
 
     return Response(serializer.data, status=200)
+
+
+def _own_payment_method(request, payment_method_id):
+    try:
+        payment_method = PaymentMethodEntity.objects.get(id=payment_method_id)
+    except PaymentMethodEntity.DoesNotExist:
+        return None, Response({'error': 'Payment method not found.'}, status=404)
+
+    if payment_method.user_id != request.user.id:
+        return None, Response({'error': 'Forbidden.'}, status=403)
+
+    return payment_method, None
+
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def updatePaymentMethod(request, payment_method_id):
+    payment_method, error = _own_payment_method(request, payment_method_id)
+
+    if error is not None:
+        return error
+
+    data = request.data
+    allowed_fields = ('cardType', 'cardNumber', 'date')
+    update_data = {field: data[field] for field in allowed_fields if field in data}
+
+    if not update_data:
+        return Response({'error': 'No fields to update.'}, status=400)
+
+    serializer = PaymentMethodSerializer(payment_method, data=update_data, partial=True)
+
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=400)
+
+    card_number = serializer.validated_data.get('cardNumber')
+    if card_number is not None:
+        duplicate = (
+            PaymentMethodEntity.objects
+            .filter(cardNumber=card_number)
+            .exclude(id=payment_method.id)
+            .first()
+        )
+        if duplicate is not None:
+            return Response(
+                {'cardNumber': ['A payment method with this card number already exists.']},
+                status=400,
+            )
+
+    try:
+        updated = serializer.save()
+    except IntegrityError:
+        return Response(
+            {'cardNumber': ['A payment method with this card number already exists.']},
+            status=400,
+        )
+
+    return Response(PaymentMethodSerializer(updated).data, status=200)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def deletePaymentMethod(request, payment_method_id):
+    payment_method, error = _own_payment_method(request, payment_method_id)
+
+    if error is not None:
+        return error
+
+    user = request.user
+    if user.payMethod_id == payment_method.id:
+        user.payMethod = None
+        user.save(update_fields=['payMethod'])
+
+    payment_method.delete()
+
+    return Response({'message': 'Payment method deleted successfully.'}, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def setDefaultPaymentMethod(request, payment_method_id):
+    payment_method, error = _own_payment_method(request, payment_method_id)
+
+    if error is not None:
+        return error
+
+    user = request.user
+    user.payMethod = payment_method
+    user.save(update_fields=['payMethod'])
+
+    return Response({'payMethod': payment_method.id}, status=200)

@@ -1,11 +1,100 @@
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from django.db import IntegrityError, transaction
 from django.contrib.auth.hashers import make_password, check_password
+from django.conf import settings
 from django.utils import timezone
+import os
 import secrets
 from ..models import ReservationEntity, RoomEntity, UserEntity
 from ..serializers import ReservationSerializer
+
+
+def _media_photo_urls(request, photo_dir):
+    if not photo_dir:
+        return []
+
+    directory = os.path.join(settings.MEDIA_ROOT, photo_dir)
+    if not os.path.isdir(directory):
+        return []
+
+    urls = []
+    try:
+        for filename in sorted(os.listdir(directory)):
+            file_path = os.path.join(directory, filename)
+            if os.path.isfile(file_path):
+                urls.append(request.build_absolute_uri(
+                    f'{settings.MEDIA_URL}{photo_dir}{filename}'
+                ))
+    except OSError:
+        return []
+
+    return urls
+
+
+def _reservation_dto(request, reservation):
+    room = reservation.room
+    hotel = room.hotel
+    city = hotel.city
+
+    return {
+        'id': reservation.id,
+        'checkIn': reservation.checkIn,
+        'checkOut': reservation.checkOut,
+        'totalPrice': str(reservation.totalPrice) if reservation.totalPrice is not None else None,
+        'viewToken': reservation.viewToken,
+        'room': {
+            'id': room.id,
+            'roomNumber': room.roomNumber,
+            'description': room.description,
+            'wifi': room.wifi,
+            'privatePool': room.privatePool,
+            'Bath': room.Bath,
+            'price': str(room.price),
+            'beds': room.beds,
+            'photos': _media_photo_urls(request, room.photo),
+        },
+        'hotel': {
+            'id': hotel.id,
+            'name': hotel.name,
+            'stars': hotel.stars,
+            'photos': _media_photo_urls(request, hotel.photo),
+        },
+        'city': {
+            'id': city.id,
+            'name': city.name,
+            'country': {
+                'id': city.country_id,
+                'name': city.country.name if city.country else None,
+            },
+        },
+    }
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getMyReservations(request):
+    reservations = list(
+        ReservationEntity.objects.filter(user=request.user).select_related(
+            'room',
+            'room__hotel',
+            'room__hotel__city',
+            'room__hotel__city__country',
+        )
+    )
+
+    today = timezone.localdate()
+    upcoming = [reservation for reservation in reservations if reservation.checkOut >= today]
+    past = [reservation for reservation in reservations if reservation.checkOut < today]
+    upcoming.sort(key=lambda reservation: reservation.checkIn)
+    past.sort(key=lambda reservation: reservation.checkIn, reverse=True)
+    reservations = upcoming + past
+
+    return Response({
+        'count': len(reservations),
+        'results': [_reservation_dto(request, reservation) for reservation in reservations],
+    }, status=200)
 
 
 @api_view(['POST'])
@@ -140,3 +229,22 @@ def getReservation(request, reservation_id):
         return Response({'error': 'Forbidden.'}, status=403)
 
     return Response({'error': 'Authentication required.'}, status=401)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cancelReservation(request, reservation_id):
+    try:
+        reservation = ReservationEntity.objects.get(id=reservation_id)
+    except ReservationEntity.DoesNotExist:
+        return Response({'error': 'Reservation not found.'}, status=404)
+
+    if reservation.user_id != request.user.id:
+        return Response({'error': 'Forbidden.'}, status=403)
+
+    if reservation.checkIn < timezone.localdate():
+        return Response({'error': 'This reservation can no longer be cancelled.'}, status=409)
+
+    reservation.delete()
+
+    return Response({'message': 'Reservation cancelled successfully.'}, status=200)

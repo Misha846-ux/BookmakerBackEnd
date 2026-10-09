@@ -1,5 +1,6 @@
 # for endpoints that work with reviews
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from ..models import HotelEntity, ReviewEntity
@@ -44,4 +45,38 @@ def getLatestReviews(request):
             }
             for review in reviews
         ]
+    }, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getMyReviews(request):
+    reviews = ReviewEntity.objects.filter(user=request.user).select_related(
+        'hotel',
+        'hotel__city',
+        'hotel__city__country',
+    ).order_by('-createdAt')
+
+    return Response({
+        'count': reviews.count(),
+        'results': [
+            {
+                'id': review.id,
+                'review': review.review,
+                'createdAt': review.createdAt,
+                'rating': review.rating,
+                'hotel': {
+                    'id': review.hotel.id,
+                    'name': review.hotel.name,
+                    'stars': review.hotel.stars,
+                    'city': review.hotel.city.name if review.hotel.city else None,
+                    'country': (
+                        review.hotel.city.country.name
+                        if review.hotel.city and review.hotel.city.country
+                        else None
+                    ),
+                },
+            }
+            for review in reviews
+        ],
     }, status=200)

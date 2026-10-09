@@ -307,6 +307,7 @@ class UserSerializer(serializers.ModelSerializer):
         ]
 
 class UserProfileUpdateSerializer(serializers.Serializer):
+    name = serializers.CharField(required=False, allow_blank=True, max_length=200)
     email = serializers.EmailField(required=False, allow_blank=False)
     phone = serializers.CharField(required=False, allow_blank=True, max_length=200)
     birthday = serializers.DateField(required=False, allow_null=True)
