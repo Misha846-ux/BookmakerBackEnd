@@ -434,7 +434,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--base-url",
-            default="http://127.0.0.1:8000",
+            default=settings.SEED_DATA_BASE_URL,
             help="Base URL of the running Bookmaker API.",
         )
         parser.add_argument(
@@ -447,6 +447,12 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if not options["base_url"]:
+            raise CommandError(
+                "SEED_DATA_BASE_URL must be configured in .env "
+                "or provided with --base-url."
+            )
+
         source_directory = Path(settings.BASE_DIR) / "PicturesForTests"
         if not source_directory.is_dir():
             raise CommandError(f"Picture directory not found: {source_directory}")
